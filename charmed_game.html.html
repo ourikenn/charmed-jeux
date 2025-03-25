@@ -1,0 +1,2489 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charmed - Le Jeu de Société Avancé</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1a1a2e;
+            color: #e6e6e6;
+            margin: 0;
+            padding: 0;
+            background-image: url('https://i.imgur.com/JQZ1JQh.jpg');
+            background-size: cover;
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(106, 13, 173, 0.5);
+        }
+
+        h1 {
+            color: #a569bd;
+            font-size: 3em;
+            text-shadow: 0 0 10px #8e44ad;
+            margin: 0;
+        }
+
+        .subtitle {
+            color: #d2b4de;
+            font-style: italic;
+        }
+
+        .game-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .game-board-container {
+            flex: 1;
+            min-width: 300px;
+            max-width: 800px;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 5px;
+            width: 100%;
+            aspect-ratio: 1/1;
+            margin: 0 auto;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(106, 13, 173, 0.7);
+        }
+
+        .cell {
+            background-color: rgba(26, 26, 46, 0.8);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px #a569bd;
+        }
+
+        .cell img {
+            max-width: 80%;
+            max-height: 80%;
+            border-radius: 5px;
+        }
+
+        .special-cell {
+            background-color: rgba(106, 13, 173, 0.3);
+            border: 2px solid #8e44ad;
+        }
+
+        .demon-cell {
+            background-color: rgba(255, 0, 0, 0.3);
+            border: 2px solid #ff0000;
+        }
+
+        .trap-cell {
+            background-color: rgba(255, 165, 0, 0.3);
+            border: 2px solid #ffa500;
+        }
+
+        .player {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
+            transition: all 0.5s ease;
+        }
+
+        .piper {
+            background-color: #e74c3c;
+        }
+
+        .phoebe {
+            background-color: #3498db;
+        }
+
+        .prue {
+            background-color: #2ecc71;
+        }
+
+        .paige {
+            background-color: #f39c12;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background-color: #8e44ad;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 1.2em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(142, 68, 173, 0.5);
+        }
+
+        button:hover {
+            background-color: #9b59b6;
+            transform: translateY(-3px);
+            box-shadow: 0 0 15px rgba(142, 68, 173, 0.8);
+        }
+
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .player-info {
+            flex: 1;
+            min-width: 300px;
+            max-width: 400px;
+        }
+
+        .player-card {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 15px rgba(142, 68, 173, 0.5);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .player-card.current-player {
+            box-shadow: 0 0 20px rgba(142, 68, 173, 0.8);
+            transform: translateY(-5px);
+        }
+
+        .player-card h3 {
+            margin-top: 0;
+            color: #a569bd;
+            border-bottom: 1px solid #a569bd;
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .player-status {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .status-value {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .status-label {
+            font-size: 0.8em;
+            color: #d2b4de;
+        }
+
+        .inventory {
+            margin-top: 10px;
+        }
+
+        .inventory-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .inventory-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .inventory-item {
+            background-color: rgba(142, 68, 173, 0.3);
+            border-radius: 5px;
+            padding: 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .inventory-item:hover {
+            background-color: rgba(142, 68, 173, 0.5);
+            transform: translateY(-3px);
+        }
+
+        .inventory-item img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        .inventory-item-name {
+            font-size: 0.8em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #1a1a2e;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 80%;
+            box-shadow: 0 0 30px rgba(142, 68, 173, 0.8);
+            position: relative;
+            border: 2px solid #8e44ad;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #a569bd;
+        }
+
+        .event-image {
+            width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .dice {
+            font-size: 3em;
+            text-align: center;
+            margin: 20px 0;
+            animation: roll 0.5s ease-out;
+        }
+
+        @keyframes roll {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(90deg); }
+            50% { transform: rotate(180deg); }
+            75% { transform: rotate(270deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .game-log {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 30px;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 0 15px rgba(142, 68, 173, 0.5);
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+        }
+
+        .log-icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .magic-effects {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .orb {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #a569bd;
+            box-shadow: 0 0 10px #8e44ad;
+            animation: float 3s infinite ease-in-out;
+            opacity: 0.7;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        .combat-ui {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+
+        .combatant {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .combatant img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin-bottom: 10px;
+            border: 3px solid;
+        }
+
+        .health-bar {
+            height: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            background-color: #e74c3c;
+            width: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .combat-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .spell-button {
+            background-color: #8e44ad;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .spell-icon {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+
+        .tab.active {
+            background-color: rgba(142, 68, 173, 0.5);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .achievement {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+
+        .achievement-icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+            color: #f1c40f;
+        }
+
+        .achievement.unlocked {
+            background-color: rgba(142, 68, 173, 0.3);
+        }
+
+        @media (max-width: 900px) {
+            .game-board {
+                aspect-ratio: 1/1;
+            }
+
+            .player-card {
+                width: 100%;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .combat-ui {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="magic-effects" id="magicEffects"></div>
+    
+    <div class="container">
+        <header>
+            <h1>CHARMED</h1>
+            <p class="subtitle">Le Pouvoir des Trois - Édition Avancée</p>
+        </header>
+
+        <div class="game-area">
+            <div class="game-board-container">
+                <div class="game-board" id="gameBoard">
+                    <!-- Le plateau de jeu sera généré ici par JavaScript -->
+                </div>
+
+                <div class="controls">
+                    <button id="rollDiceBtn">Lancer le Dé</button>
+                    <button id="endTurnBtn" disabled>Fin du Tour</button>
+                    <button id="usePowerBtn" disabled>Utiliser Pouvoir</button>
+                    <button id="useItemBtn" disabled>Utiliser Objet</button>
+                    <button id="rulesBtn">Règles & Aide</button>
+                </div>
+
+                <div class="game-log" id="gameLog">
+                    <h3>Journal de Jeu</h3>
+                    <div id="logEntries"></div>
+                </div>
+            </div>
+
+            <div class="player-info" id="playerInfo">
+                <!-- Les cartes des joueurs seront générées ici par JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour les événements -->
+    <div class="modal" id="eventModal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <img src="" alt="Événement" class="event-image" id="eventImage">
+            <h2 id="eventTitle"></h2>
+            <p id="eventDescription"></p>
+            <div id="eventActions"></div>
+        </div>
+    </div>
+
+    <!-- Modal pour les règles -->
+    <div class="modal" id="rulesModal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            
+            <div class="tabs">
+                <div class="tab active" data-tab="rules">Règles</div>
+                <div class="tab" data-tab="powers">Pouvoirs</div>
+                <div class="tab" data-tab="items">Objets</div>
+                <div class="tab" data-tab="achievements">Succès</div>
+            </div>
+            
+            <div class="tab-content active" id="rulesTab">
+                <h2>Règles du Jeu Charmed</h2>
+                <p><strong>Objectif :</strong> Les joueurs incarnent les soeurs Halliwell et doivent collecter 3 objets magiques, vaincre le démon principal et retourner au manoir Halliwell pour gagner.</p>
+                
+                <h3>Déroulement du jeu :</h3>
+                <ol>
+                    <li>Chaque joueur choisit une soeur Halliwell à incarner.</li>
+                    <li>À tour de rôle, les joueurs lancent le dé et se déplacent sur le plateau.</li>
+                    <li>En atterrissant sur une case, un événement se déclenche (rencontre avec un démon, découverte d'un objet magique, piège, etc.).</li>
+                    <li>Les joueurs peuvent utiliser leurs pouvoirs une fois par tour et des objets magiques de leur inventaire.</li>
+                    <li>Le premier joueur à collecter 3 objets magiques, vaincre le démon principal et retourner au manoir (case départ) gagne la partie.</li>
+                </ol>
+                
+                <h3>Types de cases :</h3>
+                <ul>
+                    <li><strong>Case Départ (Manor Halliwell)</strong>: Point de départ et de victoire</li>
+                    <li><strong>Case Démon</strong>: Combat contre un démon</li>
+                    <li><strong>Case Objet</strong>: Trouver un objet magique</li>
+                    <li><strong>Case Pouvoir</strong>: Recharge le pouvoir de la soeur</li>
+                    <li><strong>Case Piège</strong>: Effet négatif aléatoire</li>
+                    <li><strong>Case Événement</strong>: Événement spécial aléatoire</li>
+                    <li><strong>Case Finale (Source du Mal)</strong>: Combat contre le boss final</li>
+                </ul>
+            </div>
+            
+            <div class="tab-content" id="powersTab">
+                <h2>Pouvoirs des Soeurs</h2>
+                
+                <div class="power-card">
+                    <h3>Prue - Télékinésie</h3>
+                    <p>Peut déplacer un autre joueur ou un objet sur le plateau de 1 à 6 cases dans la direction de son choix.</p>
+                    <p><strong>Amélioration:</strong> Avec 2 objets magiques, peut déplacer jusqu'à 2 cibles.</p>
+                </div>
+                
+                <div class="power-card">
+                    <h3>Piper - Immobilisation</h3>
+                    <p>Peut geler un démon ou un autre joueur pendant un tour, les empêchant d'agir.</p>
+                    <p><strong>Amélioration:</strong> Avec 2 objets magiques, l'immobilisation dure 2 tours.</p>
+                </div>
+                
+                <div class="power-card">
+                    <h3>Phoebe - Prémonition</h3>
+                    <p>Peut voir les 3 prochaines cases devant elle et choisir de changer de direction.</p>
+                    <p><strong>Amélioration:</strong> Avec 2 objets magiques, voit 5 cases et peut partager l'information.</p>
+                </div>
+                
+                <div class="power-card">
+                    <h3>Paige - Orb</h3>
+                    <p>Peut se téléporter sur n'importe quelle case libre du plateau.</p>
+                    <p><strong>Amélioration:</strong> Avec 2 objets magiques, peut emporter un autre joueur avec elle.</p>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="itemsTab">
+                <h2>Objets Magiques</h2>
+                
+                <div class="item-card">
+                    <h3>Le Grimoire</h3>
+                    <p>Permet de relancer le dé une fois par tour.</p>
+                </div>
+                
+                <div class="item-card">
+                    <h3>L'Anneau des Ancêtres</h3>
+                    <p>Protège contre le prochain piège ou attaque de démon.</p>
+                </div>
+                
+                <div class="item-card">
+                    <h3>La Pierre de Cristal</h3>
+                    <p>Révèle la position de tous les objets sur le plateau pendant un tour.</p>
+                </div>
+                
+                <div class="item-card">
+                    <h3>Le Médaillon des Trois</h3>
+                    <p>Permet d'utiliser un pouvoir supplémentaire ce tour-ci.</p>
+                </div>
+                
+                <div class="item-card">
+                    <h3>Le Livre des Ombres</h3>
+                    <p>Inflige +1 dégât contre les démons pendant 3 tours.</p>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="achievementsTab">
+                <h2>Succès à Débloquer</h2>
+                
+                <div class="achievement">
+                    <div class="achievement-icon">🔮</div>
+                    <div>
+                        <h3>Nouvelle Sorcière</h3>
+                        <p>Atteindre le niveau 3 avec une soeur</p>
+                    </div>
+                </div>
+                
+                <div class="achievement">
+                    <div class="achievement-icon">👊</div>
+                    <div>
+                        <h3>Chasseuse de Démons</h3>
+                        <p>Vaincre 5 démons dans une partie</p>
+                    </div>
+                </div>
+                
+                <div class="achievement">
+                    <div class="achievement-icon">🏆</div>
+                    <div>
+                        <h3>Pouvoir des Trois</h3>
+                        <p>Gagner une partie avec 3 objets magiques</p>
+                    </div>
+                </div>
+                
+                <div class="achievement">
+                    <div class="achievement-icon">⚡</div>
+                    <div>
+                        <h3>Maître des Pouvoirs</h3>
+                        <p>Utiliser tous les pouvoirs améliorés dans une partie</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de combat -->
+    <div class="modal" id="combatModal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="combatTitle">Combat contre le Démon</h2>
+            
+            <div class="combat-ui">
+                <div class="combatant">
+                    <img src="" alt="Joueur" id="playerCombatImg">
+                    <h3 id="playerCombatName"></h3>
+                    <div>Santé: <span id="playerHealth"></span>/3</div>
+                    <div class="health-bar">
+                        <div class="health-fill" id="playerHealthBar"></div>
+                    </div>
+                </div>
+                
+                <div class="combatant">
+                    <img src="" alt="Démon" id="demonCombatImg">
+                    <h3 id="demonCombatName"></h3>
+                    <div>Santé: <span id="demonHealth"></span>/<span id="demonMaxHealth"></span></div>
+                    <div class="health-bar">
+                        <div class="health-fill" id="demonHealthBar"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="combatDescription"></div>
+            
+            <div class="combat-actions" id="combatActions">
+                <!-- Les actions de combat seront générées ici -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables du jeu
+        const gameState = {
+            players: [],
+            currentPlayerIndex: 0,
+            gameBoard: [],
+            gameStarted: false,
+            diceRolled: false,
+            inCombat: false,
+            specialItems: [
+                { 
+                    name: "Le Grimoire", 
+                    image: "https://i.imgur.com/JQZ1JQh.jpg",
+                    description: "Permet de relancer le dé une fois par tour",
+                    use: function(player) {
+                        if (!player.usedGrimoire) {
+                            player.usedGrimoire = true;
+                            addLogEntry(`${player.name} utilise Le Grimoire pour relancer le dé!`, '🔮');
+                            document.getElementById('rollDiceBtn').disabled = false;
+                            gameState.diceRolled = false;
+                            return true;
+                        }
+                        return false;
+                    }
+                },
+                { 
+                    name: "L'Anneau des Ancêtres", 
+                    image: "https://i.imgur.com/JQZ1JQh.jpg",
+                    description: "Protège contre le prochain piège ou attaque de démon",
+                    use: function(player) {
+                        player.hasProtection = true;
+                        addLogEntry(`${player.name} active L'Anneau des Ancêtres et est protégée contre le prochain danger!`, '💍');
+                        return true;
+                    }
+                },
+                { 
+                    name: "La Pierre de Cristal", 
+                    image: "https://i.imgur.com/JQZ1JQh.jpg",
+                    description: "Révèle la position de tous les objets sur le plateau pendant un tour",
+                    use: function(player) {
+                        revealItemsOnBoard();
+                        addLogEntry(`${player.name} utilise La Pierre de Cristal et révèle tous les objets magiques!`, '💎');
+                        return true;
+                    }
+                },
+                { 
+                    name: "Le Médaillon des Trois", 
+                    image: "https://i.imgur.com/JQZ1JQh.jpg",
+                    description: "Permet d'utiliser un pouvoir supplémentaire ce tour-ci",
+                    use: function(player) {
+                        player.hasUsedPower = false;
+                        document.getElementById('usePowerBtn').disabled = false;
+                        addLogEntry(`${player.name} utilise Le Médaillon des Trois et peut utiliser son pouvoir à nouveau!`, '📿');
+                        return true;
+                    }
+                },
+                { 
+                    name: "Le Livre des Ombres", 
+                    image: "https://i.imgur.com/JQZ1JQh.jpg",
+                    description: "Inflige +1 dégât contre les démons pendant 3 tours",
+                    use: function(player) {
+                        player.damageBonus = 3; // Durée de 3 tours
+                        addLogEntry(`${player.name} invoque Le Livre des Ombres et gagne +1 dégât contre les démons pour 3 tours!`, '📖');
+                        return true;
+                    }
+                }
+            ],
+            demons: [
+                { 
+                    name: "Barbas", 
+                    power: "Peur", 
+                    health: 3, 
+                    image: "https://i.imgur.com/JQZ1JQh.jpg",
+                    description: "Le démon de la peur qui exploite les pires craintes de ses victimes.",
+                    attacks: [
+                        { name: "Cauchemar", damage: 1, effect: "Le joueur recule de 1 case" },
+                        { name: "Terreur", damage: 1, effect: "Le joueur perd son prochain tour" }
+                    ]
+                },
+                { 
+                    name: "Shax", 
+                    power: "Vent", 
+                    health: 4, 
+                    image: "https://i.imgur.com/JQZ1JQh.jpg",
+                    description: "Démon assassin qui peut contrôler le vent pour projeter ses ennemis.",
+                    attacks: [
+                        { name: "Rafale", damage: 1, effect: "Le joueur est repoussé de 2 cases" },
+                        { name: "Tornade", damage: 2, effect: "Aucune" }
+                    ]
+                },
+                { 
+                    name: "Cole Turner", 
+                    power: "Feu", 
+                    health: 5, 
+                    image: "https://i.imgur.com/JQZ1JQh.jpg",
+                    description: "Ancien amour de Phoebe devenu démon, mi-humain mi-démon.",
+                    attacks: [
+                        { name: "Boule de Feu", damage: 2, effect: "Aucune" },
+                        { name: "Manipulation", damage: 0, effect: "Le joueur perd un objet aléatoire" }
+                    ]
+                },
+                { 
+                    name: "Source de Tout Mal", 
+                    power: "Ténèbres", 
+                    health: 7, 
+                    image: "https://i.imgur.com/JQZ1JQh.jpg",
+                    description: "L'incarnation ultime du mal, ennemi juré des soeurs Halliwell.",
+                    attacks: [
+                        { name: "Vague de Ténèbres", damage: 2, effect: "Tous les joueurs perdent 1 point de vie" },
+                        { name: "Drain de Pouvoir", damage: 1, effect: "Le joueur ne peut pas utiliser de pouvoir au prochain tour" }
+                    ]
+                }
+            ],
+            logEntries: [],
+            achievements: [
+                { id: "new_witch", name: "Nouvelle Sorcière", description: "Atteindre le niveau 3 avec une soeur", unlocked: false, icon: "🔮" },
+                { id: "demon_hunter", name: "Chasseuse de Démons", description: "Vaincre 5 démons dans une partie", unlocked: false, icon: "👊" },
+                { id: "power_of_three", name: "Pouvoir des Trois", description: "Gagner une partie avec 3 objets magiques", unlocked: false, icon: "🏆" },
+                { id: "master_powers", name: "Maître des Pouvoirs", description: "Utiliser tous les pouvoirs améliorés dans une partie", unlocked: false, icon: "⚡" }
+            ],
+            demonDefeatedCount: 0,
+            powerUsedCount: 0
+        };
+
+        // Classes du jeu
+        class Player {
+            constructor(name, power, colorClass, image) {
+                this.name = name;
+                this.power = power;
+                this.colorClass = colorClass;
+                this.image = image;
+                this.position = 0;
+                this.inventory = [];
+                this.health = 3;
+                this.hasUsedPower = false;
+                this.level = 1;
+                this.xp = 0;
+                this.usedGrimoire = false;
+                this.hasProtection = false;
+                this.damageBonus = 0;
+                this.frozenTurns = 0;
+                this.missTurn = false;
+            }
+
+            move(spaces) {
+                const newPosition = this.position + spaces;
+                if (newPosition >= 63) {
+                    this.position = 63; // Case finale
+                } else if (newPosition < 0) {
+                    this.position = 0; // Ne peut pas aller en dessous de la case départ
+                } else {
+                    this.position = newPosition;
+                }
+                return this.position;
+            }
+
+            usePower() {
+                if (this.hasUsedPower) return false;
+                this.hasUsedPower = true;
+                gameState.powerUsedCount++;
+                return true;
+            }
+
+            addItem(item) {
+                this.inventory.push(item);
+                // Vérifier si le joueur a débloqué un succès
+                if (this.inventory.length >= 3) {
+                    unlockAchievement("power_of_three");
+                }
+            }
+
+            removeItem(itemName) {
+                const index = this.inventory.findIndex(item => item.name === itemName);
+                if (index !== -1) {
+                    this.inventory.splice(index, 1);
+                }
+            }
+
+            takeDamage(amount = 1) {
+                if (this.hasProtection) {
+                    this.hasProtection = false;
+                    addLogEntry(`${this.name} est protégée par L'Anneau des Ancêtres et évite les dégâts!`, '🛡️');
+                    return true;
+                }
+                
+                this.health -= amount;
+                return this.health > 0;
+            }
+
+            addXP(amount) {
+                this.xp += amount;
+                if (this.xp >= this.level * 2) {
+                    this.levelUp();
+                }
+            }
+
+            levelUp() {
+                this.level++;
+                this.xp = 0;
+                this.health = Math.min(this.health + 1, 3 + this.level - 1);
+                addLogEntry(`${this.name} monte au niveau ${this.level}! Santé restaurée.`, '🌟');
+                
+                if (this.level >= 3) {
+                    unlockAchievement("new_witch");
+                }
+            }
+
+            canUsePower() {
+                return !this.hasUsedPower && this.frozenTurns === 0 && !this.missTurn;
+            }
+
+            endTurn() {
+                this.hasUsedPower = false;
+                this.usedGrimoire = false;
+                
+                if (this.frozenTurns > 0) {
+                    this.frozenTurns--;
+                    if (this.frozenTurns === 0) {
+                        addLogEntry(`${this.name} n'est plus immobilisée!`, '❄️');
+                    }
+                }
+                
+                if (this.damageBonus > 0) {
+                    this.damageBonus--;
+                    if (this.damageBonus === 0) {
+                        addLogEntry(`Le bonus de dégâts de ${this.name} s'est estompé.`, '📖');
+                    }
+                }
+                
+                this.missTurn = false;
+            }
+        }
+
+        // Initialisation du jeu
+        function initGame() {
+            // Créer les joueurs
+            gameState.players = [
+                new Player("Prue", "Télékinésie", "prue", "https://i.imgur.com/JQZ1JQh.jpg"),
+                new Player("Piper", "Immobilisation", "piper", "https://i.imgur.com/JQZ1JQh.jpg"),
+                new Player("Phoebe", "Prémonition", "phoebe", "https://i.imgur.com/JQZ1JQh.jpg"),
+                new Player("Paige", "Orb", "paige", "https://i.imgur.com/JQZ1JQh.jpg")
+            ];
+
+            // Créer le plateau de jeu
+            createGameBoard();
+            
+            // Mettre à jour l'interface
+            updatePlayerInfo();
+            renderGameBoard();
+            
+            // Ajouter un message de bienvenue
+            addLogEntry("Bienvenue dans le jeu Charmed! Prue commence.", '✨');
+            
+            gameState.gameStarted = true;
+            gameState.demonDefeatedCount = 0;
+            gameState.powerUsedCount = 0;
+            
+            // Réinitialiser les succès pour cette partie
+            gameState.achievements.forEach(ach => ach.unlocked = false);
+        }
+
+        // Créer le plateau de jeu
+        function createGameBoard() {
+            gameState.gameBoard = Array(64).fill().map((_, index) => {
+                const cell = { index, type: "normal", content: null, revealed: false };
+                
+                // Cases spéciales
+                if (index === 0) {
+                    cell.type = "start";
+                    cell.content = { name: "Manoir Halliwell", image: "https://i.imgur.com/JQZ1JQh.jpg" };
+                } else if (index === 63) {
+                    cell.type = "final";
+                    cell.content = { 
+                        ...gameState.demons[3], // Source de Tout Mal
+                        isBoss: true
+                    };
+                } else if (index % 7 === 0) {
+                    // Case démon
+                    cell.type = "demon";
+                    const randomDemon = gameState.demons[Math.floor(Math.random() * 3)]; // Exclure le boss
+                    cell.content = { ...randomDemon };
+                } else if (index % 5 === 0) {
+                    // Case objet magique
+                    cell.type = "item";
+                    const randomItem = gameState.specialItems[Math.floor(Math.random() * gameState.specialItems.length)];
+                    cell.content = { ...randomItem };
+                } else if (index === 21 || index === 42) {
+                    // Cases de pouvoir
+                    cell.type = "power";
+                    cell.content = { name: "Fontaine de Pouvoir", image: "https://i.imgur.com/JQZ1JQh.jpg" };
+                } else if (index === 10 || index === 30 || index === 50) {
+                    // Cases piège
+                    cell.type = "trap";
+                    cell.content = { 
+                        name: ["Malédiction", "Sortilège", "Illusion"][Math.floor(Math.random() * 3)],
+                        image: "https://i.imgur.com/JQZ1JQh.jpg"
+                    };
+                } else if (index === 15 || index === 35 || index === 55) {
+                    // Cases événement
+                    cell.type = "event";
+                    cell.content = { 
+                        name: ["Rencontre Inattendue", "Aide Inespérée", "Révélation"][Math.floor(Math.random() * 3)],
+                        image: "https://i.imgur.com/JQZ1JQh.jpg"
+                    };
+                }
+                
+                return cell;
+            });
+        }
+
+        // Mettre à jour les informations des joueurs
+        function updatePlayerInfo() {
+            const playerInfoDiv = document.getElementById('playerInfo');
+            playerInfoDiv.innerHTML = '';
+            
+            gameState.players.forEach((player, index) => {
+                const isCurrent = index === gameState.currentPlayerIndex;
+                const playerCard = document.createElement('div');
+                playerCard.className = `player-card ${isCurrent ? 'current-player' : ''}`;
+                
+                playerCard.innerHTML = `
+                    <h3>${player.name} <span>Niv. ${player.level}</span></h3>
+                    <div class="player-status">
+                        <div class="status-item">
+                            <div class="status-value">${player.health}</div>
+                            <div class="status-label">Santé</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-value">${player.inventory.length}</div>
+                            <div class="status-label">Objets</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-value">${player.xp}/${player.level * 2}</div>
+                            <div class="status-label">XP</div>
+                        </div>
+                    </div>
+                    <p><strong>Pouvoir:</strong> ${player.power} ${player.canUsePower() ? '' : '(indisponible)'}</p>
+                    <div class="inventory">
+                        <div class="inventory-title">
+                            <strong>Inventaire</strong>
+                            <span>${player.inventory.length}/5</span>
+                        </div>
+                        ${player.inventory.length > 0 ? `
+                            <div class="inventory-items">
+                                ${player.inventory.map(item => `
+                                    <div class="inventory-item" data-item="${item.name}">
+                                        <img src="${item.image}" alt="${item.name}">
+                                        <div class="inventory-item-name">${item.name}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<p>Aucun objet</p>'}
+                    </div>
+                `;
+                
+                playerInfoDiv.appendChild(playerCard);
+            });
+            
+            // Ajouter des écouteurs d'événements pour les objets
+            document.querySelectorAll('.inventory-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const itemName = item.getAttribute('data-item');
+                    useItemFromInventory(itemName);
+                });
+            });
+        }
+
+        // Rendre le plateau de jeu
+        function renderGameBoard() {
+            const gameBoardDiv = document.getElementById('gameBoard');
+            gameBoardDiv.innerHTML = '';
+            
+            // Créer un plateau 8x8 (64 cases)
+            for (let i = 0; i < 64; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.index = i;
+                
+                const gameCell = gameState.gameBoard[i];
+                
+                // Ajouter des classes spéciales selon le type de case
+                if (gameCell.type === 'start') {
+                    cell.classList.add('special-cell');
+                    cell.innerHTML = '<img src="https://i.imgur.com/JQZ1JQh.jpg" alt="Départ">';
+                } else if (gameCell.type === 'final') {
+                    cell.classList.add('demon-cell');
+                    cell.innerHTML = `<img src="${gameCell.content.image}" alt="${gameCell.content.name}">`;
+                } else if (gameCell.type === 'demon') {
+                    if (gameCell.content) {
+                        cell.classList.add('demon-cell');
+                        cell.innerHTML = `<img src="${gameCell.content.image}" alt="${gameCell.content.name}">`;
+                    } else {
+                        cell.classList.add('normal');
+                    }
+                } else if (gameCell.type === 'item') {
+                    if (gameCell.content && (gameCell.revealed || gameState.players.some(p => p.position === i))) {
+                        cell.classList.add('special-cell');
+                        cell.innerHTML = `<img src="${gameCell.content.image}" alt="${gameCell.content.name}">`;
+                    } else {
+                        cell.classList.add('normal');
+                    }
+                } else if (gameCell.type === 'power') {
+                    cell.classList.add('special-cell');
+                    cell.innerHTML = '<img src="https://i.imgur.com/JQZ1JQh.jpg" alt="Pouvoir">';
+                } else if (gameCell.type === 'trap') {
+                    cell.classList.add('trap-cell');
+                    cell.innerHTML = `<img src="${gameCell.content.image}" alt="${gameCell.content.name}">`;
+                } else if (gameCell.type === 'event') {
+                    cell.classList.add('special-cell');
+                    cell.innerHTML = `<img src="${gameCell.content.image}" alt="${gameCell.content.name}">`;
+                }
+                
+                // Ajouter les joueurs sur leurs positions
+                gameState.players.forEach(player => {
+                    if (player.position === i) {
+                        const playerMarker = document.createElement('div');
+                        playerMarker.className = `player ${player.colorClass}`;
+                        playerMarker.textContent = player.name.charAt(0);
+                        cell.appendChild(playerMarker);
+                    }
+                });
+                
+                gameBoardDiv.appendChild(cell);
+            }
+        }
+
+        // Révéler les objets sur le plateau
+        function revealItemsOnBoard() {
+            gameState.gameBoard.forEach(cell => {
+                if (cell.type === 'item' && cell.content) {
+                    cell.revealed = true;
+                }
+            });
+            renderGameBoard();
+            
+            setTimeout(() => {
+                gameState.gameBoard.forEach(cell => {
+                    if (cell.type === 'item') {
+                        cell.revealed = false;
+                    }
+                });
+                renderGameBoard();
+            }, 3000);
+        }
+
+        // Lancer le dé
+        function rollDice() {
+            if (gameState.diceRolled || gameState.inCombat) return;
+            
+            const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+            
+            if (currentPlayer.frozenTurns > 0) {
+                addLogEntry(`${currentPlayer.name} est immobilisée et ne peut pas jouer ce tour!`, '❄️');
+                endTurn();
+                return;
+            }
+            
+            if (currentPlayer.missTurn) {
+                addLogEntry(`${currentPlayer.name} doit passer son tour!`, '⏭️');
+                currentPlayer.missTurn = false;
+                endTurn();
+                return;
+            }
+            
+            const diceValue = Math.floor(Math.random() * 6) + 1;
+            
+            // Afficher l'animation du dé
+            const diceDiv = document.createElement('div');
+            diceDiv.className = 'dice';
+            diceDiv.textContent = `🎲 ${diceValue}`;
+            document.querySelector('.controls').prepend(diceDiv);
+            
+            // Supprimer après l'animation
+            setTimeout(() => {
+                diceDiv.remove();
+            }, 1500);
+            
+            addLogEntry(`${currentPlayer.name} lance le dé et obtient ${diceValue}.`, '🎲');
+            
+            // Déplacer le joueur
+            const newPosition = currentPlayer.move(diceValue);
+            renderGameBoard();
+            
+            // Vérifier l'événement sur la nouvelle case
+            setTimeout(() => {
+                checkCellEvent(newPosition);
+            }, 1000);
+            
+            gameState.diceRolled = true;
+            document.getElementById('rollDiceBtn').disabled = true;
+            document.getElementById('endTurnBtn').disabled = false;
+            document.getElementById('usePowerBtn').disabled = !currentPlayer.canUsePower();
+            document.getElementById('useItemBtn').disabled = currentPlayer.inventory.length === 0;
+        }
+
+        // Vérifier l'événement sur la case
+        function checkCellEvent(position) {
+            const cell = gameState.gameBoard[position];
+            const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+            
+            switch(cell.type) {
+                case 'demon':
+                    if (cell.content) {
+                        demonEncounter(currentPlayer, cell.content);
+                    } else {
+                        addLogEntry(`${currentPlayer.name} atterrit sur une ancienne case démon vide.`, '👻');
+                        document.getElementById('usePowerBtn').disabled = !currentPlayer.canUsePower();
+                    }
+                    break;
+                case 'item':
+                    if (cell.content) {
+                        itemFound(currentPlayer, cell.content);
+                        // Retirer l'objet du plateau
+                        cell.content = null;
+                    } else {
+                        addLogEntry(`${currentPlayer.name} atterrit sur une case objet déjà vide.`, '📦');
+                    }
+                    break;
+                case 'power':
+                    powerBoost(currentPlayer);
+                    break;
+                case 'trap':
+                    trapActivated(currentPlayer, cell.content);
+                    break;
+                case 'event':
+                    randomEvent(currentPlayer, cell.content);
+                    break;
+                case 'final':
+                    finalCell(currentPlayer);
+                    break;
+                case 'start':
+                    if (currentPlayer.inventory.length >= 3 && position === 0) {
+                        // Le joueur est revenu au manoir avec assez d'objets
+                        endGame(currentPlayer);
+                    } else {
+                        addLogEntry(`${currentPlayer.name} retourne au Manoir Halliwell.`, '🏠');
+                        document.getElementById('usePowerBtn').disabled = !currentPlayer.canUsePower();
+                    }
+                    break;
+                default:
+                    addLogEntry(`${currentPlayer.name} atterrit sur une case normale.`, '🛣️');
+                    document.getElementById('usePowerBtn').disabled = !currentPlayer.canUsePower();
+            }
+        }
+
+        // Rencontre avec un démon
+        function demonEncounter(player, demon) {
+            gameState.inCombat = true;
+            
+            const modal = document.getElementById('combatModal');
+            const combatTitle = document.getElementById('combatTitle');
+            const playerCombatImg = document.getElementById('playerCombatImg');
+            const playerCombatName = document.getElementById('playerCombatName');
+            const playerHealth = document.getElementById('playerHealth');
+            const playerHealthBar = document.getElementById('playerHealthBar');
+            const demonCombatImg = document.getElementById('demonCombatImg');
+            const demonCombatName = document.getElementById('demonCombatName');
+            const demonHealth = document.getElementById('demonHealth');
+            const demonMaxHealth = document.getElementById('demonMaxHealth');
+            const demonHealthBar = document.getElementById('demonHealthBar');
+            const combatDescription = document.getElementById('combatDescription');
+            const combatActions = document.getElementById('combatActions');
+            
+            // Configurer l'interface de combat
+            combatTitle.textContent = `Combat contre ${demon.name}`;
+            playerCombatImg.src = player.image;
+            playerCombatName.textContent = player.name;
+            playerHealth.textContent = player.health;
+            playerHealthBar.style.width = `${(player.health / 3) * 100}%`;
+            
+            demonCombatImg.src = demon.image;
+            demonCombatName.textContent = demon.name;
+            demonHealth.textContent = demon.health;
+            demonMaxHealth.textContent = demon.health;
+            demonHealthBar.style.width = '100%';
+            
+            combatDescription.innerHTML = `
+                <p>Vous affrontez <strong>${demon.name}</strong>, le démon du <strong>${demon.power}</strong>!</p>
+                <p>${demon.description}</p>
+            `;
+            
+            // Configurer les actions de combat
+            combatActions.innerHTML = '';
+            
+            // Action de base - Attaque
+            const attackBtn = document.createElement('button');
+            attackBtn.className = 'spell-button';
+            attackBtn.innerHTML = `
+                <div class="spell-icon">⚔️</div>
+                <div>Attaquer</div>
+            `;
+            attackBtn.addEventListener('click', () => playerAttack(player, demon));
+            combatActions.appendChild(attackBtn);
+            
+            // Pouvoir spécial selon la soeur
+            if (player.canUsePower()) {
+                const powerBtn = document.createElement('button');
+                powerBtn.className = 'spell-button';
+                
+                switch(player.name) {
+                    case "Prue":
+                        powerBtn.innerHTML = `
+                            <div class="spell-icon">👁️</div>
+                            <div>Télékinésie</div>
+                        `;
+                        powerBtn.addEventListener('click', () => {
+                            if (player.usePower()) {
+                                addLogEntry(`${player.name} utilise sa Télékinésie pour perturber ${demon.name}!`, '👁️');
+                                combatDescription.innerHTML += `<p>Vous utilisez votre Télékinésie pour déséquilibrer ${demon.name}, lui infligeant 1 dégât supplémentaire!</p>`;
+                                demon.health -= 1;
+                                updateCombatUI(demon);
+                                checkDemonDefeated(player, demon);
+                            }
+                        });
+                        break;
+                    case "Piper":
+                        powerBtn.innerHTML = `
+                            <div class="spell-icon">❄️</div>
+                            <div>Immobiliser</div>
+                        `;
+                        powerBtn.addEventListener('click', () => {
+                            if (player.usePower()) {
+                                addLogEntry(`${player.name} utilise son pouvoir d'Immobilisation sur ${demon.name}!`, '❄️');
+                                combatDescription.innerHTML += `<p>Vous immobilisez ${demon.name}, il ne pourra pas contre-attaquer ce tour!</p>`;
+                                demon.skipTurn = true;
+                                document.getElementById('usePowerBtn').disabled = true;
+                            }
+                        });
+                        break;
+                    case "Phoebe":
+                        powerBtn.innerHTML = `
+                            <div class="spell-icon">🔮</div>
+                            <div>Prémonition</div>
+                        `;
+                        powerBtn.addEventListener('click', () => {
+                            if (player.usePower()) {
+                                const demonAttack = demon.attacks[Math.floor(Math.random() * demon.attacks.length)];
+                                addLogEntry(`${player.name} utilise sa Prémonition pour anticiper l'attaque de ${demon.name}!`, '🔮');
+                                combatDescription.innerHTML += `<p>Vous voyez que ${demon.name} prépare "${demonAttack.name}" (${demonAttack.effect})!</p>`;
+                                document.getElementById('usePowerBtn').disabled = true;
+                            }
+                        });
+                        break;
+                    case "Paige":
+                        powerBtn.innerHTML = `
+                            <div class="spell-icon">✨</div>
+                            <div>Orb</div>
+                        `;
+                        powerBtn.addEventListener('click', () => {
+                            if (player.usePower()) {
+                                addLogEntry(`${player.name} utilise son pouvoir d'Orb pour éviter l'attaque de ${demon.name}!`, '✨');
+                                combatDescription.innerHTML += `<p>Vous utilisez votre Orb pour esquiver l'attaque de ${demon.name}!</p>`;
+                                demon.skipTurn = true;
+                                document.getElementById('usePowerBtn').disabled = true;
+                            }
+                        });
+                        break;
+                }
+                
+                combatActions.appendChild(powerBtn);
+            }
+            
+            // Bouton pour utiliser un objet
+            if (player.inventory.length > 0) {
+                const itemBtn = document.createElement('button');
+                itemBtn.className = 'spell-button';
+                itemBtn.innerHTML = `
+                    <div class="spell-icon">🎒</div>
+                    <div>Utiliser Objet</div>
+                `;
+                itemBtn.addEventListener('click', () => {
+                    showInventoryForCombat(player, demon);
+                });
+                combatActions.appendChild(itemBtn);
+            }
+            
+            modal.style.display = 'flex';
+            
+            addLogEntry(`${player.name} rencontre ${demon.name} le démon! Un combat commence!`, '👹');
+        }
+
+        // Attaque du joueur
+        function playerAttack(player, demon) {
+            const combatDescription = document.getElementById('combatDescription');
+            let damage = 1;
+            
+            // Bonus de dégâts si le joueur a le Livre des Ombres
+            if (player.damageBonus > 0) {
+                damage += 1;
+                combatDescription.innerHTML += `<p>Votre bonus de dégâts du Livre des Ombres s'applique!</p>`;
+            }
+            
+            demon.health -= damage;
+            
+            combatDescription.innerHTML += `
+                <p>Vous attaquez ${demon.name} et lui infligez ${damage} dégât${damage > 1 ? 's' : ''}!</p>
+            `;
+            
+            updateCombatUI(demon);
+            
+            // Vérifier si le démon est vaincu
+            if (!checkDemonDefeated(player, demon)) {
+                // Le démon contre-attaque s'il n'est pas immobilisé
+                if (!demon.skipTurn) {
+                    setTimeout(() => demonAttack(player, demon), 1000);
+                } else {
+                    demon.skipTurn = false;
+                    combatDescription.innerHTML += `<p>${demon.name} est immobilisé et ne peut pas contre-attaquer!</p>`;
+                }
+            }
+        }
+
+        // Attaque du démon
+        function demonAttack(player, demon) {
+            const combatDescription = document.getElementById('combatDescription');
+            const attack = demon.attacks[Math.floor(Math.random() * demon.attacks.length)];
+            
+            combatDescription.innerHTML += `
+                <p>${demon.name} utilise "${attack.name}"!</p>
+            `;
+            
+            // Appliquer les dégâts
+            if (attack.damage > 0) {
+                const survived = player.takeDamage(attack.damage);
+                updateCombatUI(demon, player);
+                
+                if (!survived) {
+                    combatDescription.innerHTML += `
+                        <p>${player.name} a été vaincue par ${demon.name}!</p>
+                    `;
+                    
+                    setTimeout(() => {
+                        playerDefeated(player);
+                        closeModal();
+                    }, 1500);
+                    return;
+                } else {
+                    combatDescription.innerHTML += `
+                        <p>${player.name} subit ${attack.damage} dégât${attack.damage > 1 ? 's' : ''}!</p>
+                    `;
+                }
+            }
+            
+            // Appliquer l'effet spécial
+            if (attack.effect !== "Aucune") {
+                combatDescription.innerHTML += `<p>Effet: ${attack.effect}</p>`;
+                
+                switch(attack.effect) {
+                    case "Le joueur recule de 1 case":
+                        player.move(-1);
+                        renderGameBoard();
+                        break;
+                    case "Le joueur perd son prochain tour":
+                        player.missTurn = true;
+                        break;
+                    case "Le joueur est repoussé de 2 cases":
+                        player.move(-2);
+                        renderGameBoard();
+                        break;
+                    case "Le joueur perd un objet aléatoire":
+                        if (player.inventory.length > 0) {
+                            const randomItem = player.inventory[Math.floor(Math.random() * player.inventory.length)];
+                            player.removeItem(randomItem.name);
+                            combatDescription.innerHTML += `<p>${player.name} perd ${randomItem.name}!</p>`;
+                            updatePlayerInfo();
+                        }
+                        break;
+                    case "Tous les joueurs perdent 1 point de vie":
+                        gameState.players.forEach(p => {
+                            if (p !== player) {
+                                p.takeDamage(1);
+                                combatDescription.innerHTML += `<p>${p.name} subit 1 dégât à distance!</p>`;
+                            }
+                        });
+                        break;
+                    case "Le joueur ne peut pas utiliser de pouvoir au prochain tour":
+                        player.hasUsedPower = true;
+                        document.getElementById('usePowerBtn').disabled = true;
+                        break;
+                }
+            }
+        }
+
+        // Mettre à jour l'interface de combat
+        function updateCombatUI(demon, player) {
+            if (player) {
+                document.getElementById('playerHealth').textContent = player.health;
+                document.getElementById('playerHealthBar').style.width = `${(player.health / 3) * 100}%`;
+            }
+            
+            document.getElementById('demonHealth').textContent = Math.max(0, demon.health);
+            document.getElementById('demonHealthBar').style.width = `${Math.max(0, (demon.health / demon.health) * 100)}%`;
+        }
+
+        // Vérifier si le démon est vaincu
+        function checkDemonDefeated(player, demon) {
+            if (demon.health <= 0) {
+                const combatDescription = document.getElementById('combatDescription');
+                combatDescription.innerHTML += `
+                    <p><strong>${player.name} a vaincu ${demon.name}!</strong></p>
+                `;
+                
+                // Récompenses
+                player.addXP(2);
+                gameState.demonDefeatedCount++;
+                
+                // Vérifier le succès de chasseur de démons
+                if (gameState.demonDefeatedCount >= 5) {
+                    unlockAchievement("demon_hunter");
+                }
+                
+                // 50% de chance d'obtenir un objet
+                if (Math.random() > 0.5) {
+                    const randomItem = gameState.specialItems[Math.floor(Math.random() * gameState.specialItems.length)];
+                    player.addItem({...randomItem});
+                    combatDescription.innerHTML += `
+                        <p>En fouillant les restes de ${demon.name}, vous trouvez ${randomItem.name}!</p>
+                    `;
+                }
+                
+                // Retirer le démon du plateau
+                const demonCell = gameState.gameBoard.find(cell => cell.content && cell.content.name === demon.name);
+                if (demonCell) {
+                    demonCell.content = null;
+                }
+                
+                updatePlayerInfo();
+                
+                setTimeout(() => {
+                    closeModal();
+                    gameState.inCombat = false;
+                    
+                    if (demon.isBoss) {
+                        // Le joueur a vaincu le boss, doit retourner au manoir
+                        addLogEntry(`${player.name} a vaincu la Source de Tout Mal! Elle doit maintenant retourner au Manoir Halliwell pour gagner.`, '🏆');
+                    }
+                }, 2000);
+                
+                return true;
+            }
+            return false;
+        }
+
+        // Joueur vaincu
+        function playerDefeated(player) {
+            addLogEntry(`${player.name} a été vaincue! Elle perd tous ses objets et retourne au Manoir Halliwell.`, '💀');
+            
+            player.inventory = [];
+            player.position = 0;
+            player.health = 3;
+            gameState.inCombat = false;
+            
+            renderGameBoard();
+            updatePlayerInfo();
+        }
+
+        // Montrer l'inventaire pour le combat
+        function showInventoryForCombat(player, demon) {
+            const combatDescription = document.getElementById('combatDescription');
+            combatDescription.innerHTML = `
+                <p>Choisissez un objet à utiliser:</p>
+                <div class="inventory-items">
+                    ${player.inventory.map(item => `
+                        <div class="inventory-item" data-item="${item.name}">
+                            <img src="${item.image}" alt="${item.name}">
+                            <div class="inventory-item-name">${item.name}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            // Ajouter des écouteurs d'événements pour les objets
+            document.querySelectorAll('.inventory-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const itemName = item.getAttribute('data-item');
+                    const selectedItem = player.inventory.find(i => i.name === itemName);
+                    
+                    if (selectedItem && selectedItem.use(player)) {
+                        player.removeItem(itemName);
+                        updatePlayerInfo();
+                        
+                        combatDescription.innerHTML += `
+                            <p>Vous avez utilisé ${itemName}!</p>
+                        `;
+                        
+                        // Si le démon est toujours en vie, il contre-attaque
+                        if (demon.health > 0 && !demon.skipTurn) {
+                            setTimeout(() => demonAttack(player, demon), 1000);
+                        }
+                    }
+                });
+            });
+        }
+
+        // Trouver un objet magique
+        function itemFound(player, item) {
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventImage = document.getElementById('eventImage');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = `Trouvé: ${item.name}!`;
+            eventDescription.textContent = item.description || "Vous avez trouvé un objet magique puissant. Souhaitez-vous le prendre?";
+            eventImage.src = item.image;
+            
+            if (player.inventory.length >= 5) {
+                eventActions.innerHTML = `
+                    <p>Votre inventaire est plein! Vous devez abandonner un objet pour en prendre un nouveau.</p>
+                    <button onclick="swapItem(${gameState.currentPlayerIndex}, '${item.name}')">Échanger un objet</button>
+                    <button onclick="leaveItem()">Laisser l'objet</button>
+                `;
+            } else {
+                eventActions.innerHTML = `
+                    <button onclick="takeItem(${gameState.currentPlayerIndex})">Prendre l'objet</button>
+                    <button onclick="leaveItem()">Laisser l'objet</button>
+                `;
+            }
+            
+            modal.style.display = 'flex';
+            
+            addLogEntry(`${player.name} trouve ${item.name}!`, '🎁');
+        }
+
+        // Prendre un objet
+        function takeItem(playerIndex) {
+            const player = gameState.players[playerIndex];
+            const cell = gameState.gameBoard[player.position];
+            
+            player.addItem(cell.content);
+            closeModal();
+            
+            addLogEntry(`${player.name} ajoute ${cell.content.name} à son inventaire.`, '🎒');
+            updatePlayerInfo();
+            
+            document.getElementById('useItemBtn').disabled = player.inventory.length === 0;
+        }
+
+        // Échanger un objet
+        function swapItem(playerIndex, newItemName) {
+            const player = gameState.players[playerIndex];
+            const cell = gameState.gameBoard[player.position];
+            const newItem = {...cell.content};
+            
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = `Échanger un objet`;
+            eventDescription.innerHTML = `
+                <p>Votre inventaire est plein. Choisissez un objet à remplacer par ${newItemName}:</p>
+                <div class="inventory-items">
+                    ${player.inventory.map(item => `
+                        <div class="inventory-item" data-item="${item.name}">
+                            <img src="${item.image}" alt="${item.name}">
+                            <div class="inventory-item-name">${item.name}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            // Ajouter des écouteurs d'événements pour les objets
+            document.querySelectorAll('.inventory-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const oldItemName = item.getAttribute('data-item');
+                    player.removeItem(oldItemName);
+                    player.addItem(newItem);
+                    
+                    closeModal();
+                    
+                    addLogEntry(`${player.name} a échangé ${oldItemName} contre ${newItemName}.`, '🔄');
+                    updatePlayerInfo();
+                    
+                    document.getElementById('useItemBtn').disabled = player.inventory.length === 0;
+                });
+            });
+        }
+
+        // Laisser un objet
+        function leaveItem() {
+            closeModal();
+            addLogEntry(`${gameState.players[gameState.currentPlayerIndex].name} laisse l'objet derrière elle.`, '🚫');
+        }
+
+        // Case de pouvoir
+        function powerBoost(player) {
+            player.hasUsedPower = false;
+            document.getElementById('usePowerBtn').disabled = !player.canUsePower();
+            
+            addLogEntry(`${player.name} arrive sur une case pouvoir et peut utiliser son pouvoir à nouveau!`, '✨');
+            
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventImage = document.getElementById('eventImage');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = "Fontaine de Pouvoir!";
+            eventDescription.textContent = `Votre pouvoir ${player.power} a été rechargé! Vous pouvez l'utiliser à nouveau ce tour.`;
+            eventImage.src = "https://i.imgur.com/JQZ1JQh.jpg";
+            
+            eventActions.innerHTML = `
+                <button onclick="closeModal()">Continuer</button>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+
+        // Piège activé
+        function trapActivated(player, trap) {
+            const effects = [
+                { name: "Reculer de 3 cases", effect: () => player.move(-3) },
+                { name: "Perdre un objet aléatoire", effect: () => {
+                    if (player.inventory.length > 0) {
+                        const randomItem = player.inventory[Math.floor(Math.random() * player.inventory.length)];
+                        player.removeItem(randomItem.name);
+                        return ` et perd ${randomItem.name}`;
+                    }
+                    return "";
+                }},
+                { name: "Passer le prochain tour", effect: () => {
+                    player.missTurn = true;
+                    return "";
+                }},
+                { name: "Perdre 1 point de vie", effect: () => {
+                    player.takeDamage(1);
+                    return "";
+                }}
+            ];
+            
+            const selectedEffect = effects[Math.floor(Math.random() * effects.length)];
+            let additionalText = selectedEffect.effect();
+            
+            addLogEntry(`${player.name} active un piège "${trap.name}"${additionalText}!`, '⚠️');
+            
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventImage = document.getElementById('eventImage');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = `Piège: ${trap.name}!`;
+            eventDescription.textContent = `Vous avez déclenché un piège! Effet: ${selectedEffect.name}`;
+            eventImage.src = trap.image;
+            
+            eventActions.innerHTML = `
+                <button onclick="closeModal()">Continuer</button>
+            `;
+            
+            modal.style.display = 'flex';
+            
+            renderGameBoard();
+            updatePlayerInfo();
+        }
+
+        // Événement aléatoire
+        function randomEvent(player, event) {
+            const events = [
+                { 
+                    name: "Rencontre Inattendue", 
+                    description: "Un ancien allié vous aide dans votre quête.",
+                    effect: () => {
+                        player.addXP(1);
+                        return "Vous gagnez 1 point d'expérience!";
+                    }
+                },
+                { 
+                    name: "Aide Inespérée", 
+                    description: "Vous trouvez un objet magique caché.",
+                    effect: () => {
+                        if (player.inventory.length < 5) {
+                            const randomItem = gameState.specialItems[Math.floor(Math.random() * gameState.specialItems.length)];
+                            player.addItem({...randomItem});
+                            return `Vous trouvez ${randomItem.name}!`;
+                        }
+                        return "Votre inventaire est plein, vous ne pouvez pas prendre d'autres objets.";
+                    }
+                },
+                { 
+                    name: "Révélation", 
+                    description: "Une vision vous montre le chemin.",
+                    effect: () => {
+                        revealItemsOnBoard();
+                        return "Vous voyez brièvement la position de tous les objets magiques!";
+                    }
+                }
+            ];
+            
+            const selectedEvent = events.find(e => e.name === event.name) || events[0];
+            const effectResult = selectedEvent.effect();
+            
+            addLogEntry(`${player.name} déclenche un événement spécial: ${selectedEvent.name}!`, '🌟');
+            
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventImage = document.getElementById('eventImage');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = `Événement: ${selectedEvent.name}`;
+            eventDescription.innerHTML = `
+                <p>${selectedEvent.description}</p>
+                <p><strong>Résultat:</strong> ${effectResult}</p>
+            `;
+            eventImage.src = event.image;
+            
+            eventActions.innerHTML = `
+                <button onclick="closeModal()">Continuer</button>
+            `;
+            
+            modal.style.display = 'flex';
+            
+            updatePlayerInfo();
+        }
+
+        // Case finale (boss)
+        function finalCell(player) {
+            const cell = gameState.gameBoard[63];
+            
+            if (cell.content) {
+                demonEncounter(player, cell.content);
+            } else if (player.inventory.length >= 3) {
+                // Le joueur a déjà vaincu le boss et a assez d'objets
+                addLogEntry(`${player.name} doit maintenant retourner au Manoir Halliwell pour gagner!`, '🏠');
+            } else {
+                addLogEntry(`${player.name} atteint la case finale mais n'a pas assez d'objets magiques pour gagner.`, '🚫');
+                
+                const modal = document.getElementById('eventModal');
+                const eventTitle = document.getElementById('eventTitle');
+                const eventDescription = document.getElementById('eventDescription');
+                const eventImage = document.getElementById('eventImage');
+                const eventActions = document.getElementById('eventActions');
+                
+                eventTitle.textContent = "Source de Tout Mal";
+                eventDescription.textContent = "Vous avez atteint la Source de Tout Mal mais vous n'avez pas assez d'objets magiques pour la vaincre définitivement. Vous devez collecter au moins 3 objets magiques.";
+                eventImage.src = "https://i.imgur.com/JQZ1JQh.jpg";
+                
+                eventActions.innerHTML = `
+                    <button onclick="closeModal()">Continuer</button>
+                `;
+                
+                modal.style.display = 'flex';
+            }
+        }
+
+        // Utiliser le pouvoir du joueur
+        function usePower() {
+            const player = gameState.players[gameState.currentPlayerIndex];
+            
+            if (!player.canUsePower()) {
+                if (player.frozenTurns > 0) {
+                    addLogEntry(`${player.name} est immobilisée et ne peut pas utiliser son pouvoir!`, '❄️');
+                } else if (player.missTurn) {
+                    addLogEntry(`${player.name} doit passer son tour et ne peut pas utiliser son pouvoir!`, '⏭️');
+                } else {
+                    addLogEntry(`${player.name} a déjà utilisé son pouvoir ce tour-ci!`, '🚫');
+                }
+                return;
+            }
+            
+            player.usePower();
+            document.getElementById('usePowerBtn').disabled = true;
+            
+            // Effets visuels
+            createMagicEffects();
+            
+            // Appliquer le pouvoir selon le joueur
+            switch(player.name) {
+                case "Prue":
+                    // Télékinésie - déplacer un autre joueur ou démon
+                    addLogEntry(`${player.name} utilise sa Télékinésie! Elle peut déplacer une cible.`, '👁️');
+                    promptToMovePlayer();
+                    break;
+                case "Piper":
+                    // Immobilisation - geler un démon ou joueur
+                    addLogEntry(`${player.name} utilise son pouvoir d'Immobilisation! Elle peut geler une cible.`, '❄️');
+                    promptToFreeze();
+                    break;
+                case "Phoebe":
+                    // Prémonition - voir les prochaines cases
+                    addLogEntry(`${player.name} utilise sa Prémonition! Elle voit les prochaines cases.`, '🔮');
+                    showNextCells();
+                    break;
+                case "Paige":
+                    // Orb - se téléporter
+                    addLogEntry(`${player.name} utilise son pouvoir d'Orb! Elle peut se téléporter.`, '✨');
+                    promptToTeleport();
+                    break;
+            }
+        }
+
+        // Utiliser un objet de l'inventaire
+        function useItemFromInventory(itemName) {
+            const player = gameState.players[gameState.currentPlayerIndex];
+            const item = player.inventory.find(i => i.name === itemName);
+            
+            if (item && item.use(player)) {
+                player.removeItem(itemName);
+                addLogEntry(`${player.name} utilise ${itemName}!`, '🎒');
+                updatePlayerInfo();
+                
+                document.getElementById('useItemBtn').disabled = player.inventory.length === 0;
+            }
+        }
+
+        // Prue - Télékinésie: déplacer une cible
+        function promptToMovePlayer() {
+            const movableTargets = [];
+            
+            // Ajouter les autres joueurs
+            gameState.players.forEach((p, i) => {
+                if (i !== gameState.currentPlayerIndex) {
+                    movableTargets.push({
+                        type: 'player',
+                        index: i,
+                        name: p.name,
+                        position: p.position
+                    });
+                }
+            });
+            
+            // Ajouter les démons sur le plateau
+            gameState.gameBoard.forEach((cell, i) => {
+                if (cell.type === 'demon' && cell.content) {
+                    movableTargets.push({
+                        type: 'demon',
+                        index: i,
+                        name: cell.content.name,
+                        position: i
+                    });
+                }
+            });
+            
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventImage = document.getElementById('eventImage');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = "Télékinésie";
+            eventDescription.textContent = "Choisissez une cible à déplacer:";
+            eventImage.src = "https://i.imgur.com/JQZ1JQh.jpg";
+            
+            let targetOptions = '';
+            movableTargets.forEach(target => {
+                targetOptions += `<option value="${target.type}-${target.index}">${target.name} (position ${target.position})</option>`;
+            });
+            
+            eventActions.innerHTML = `
+                <select id="moveTarget">
+                    ${targetOptions}
+                </select>
+                <label for="moveSpaces">Nombre de cases:</label>
+                <input type="number" id="moveSpaces" min="-6" max="6" value="1">
+                <button onclick="executeMoveTarget()">Déplacer</button>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+
+        function executeMoveTarget() {
+            const target = document.getElementById('moveTarget').value;
+            const spaces = parseInt(document.getElementById('moveSpaces').value);
+            
+            if (!target || isNaN(spaces)) {
+                closeModal();
+                return;
+            }
+            
+            const [type, index] = target.split('-');
+            const player = gameState.players[gameState.currentPlayerIndex];
+            
+            closeModal();
+            
+            if (type === 'player') {
+                const targetPlayer = gameState.players[parseInt(index)];
+                const newPosition = targetPlayer.move(spaces);
+                renderGameBoard();
+                
+                addLogEntry(`Prue utilise sa Télékinésie pour déplacer ${targetPlayer.name} de ${spaces} cases à la position ${newPosition}.`, '👁️');
+                checkCellEvent(newPosition);
+            } else if (type === 'demon') {
+                const cell = gameState.gameBoard[parseInt(index)];
+                const newIndex = Math.max(0, Math.min(63, cell.index + spaces));
+                
+                // Trouver une case vide près de la nouvelle position
+                let emptyCell = null;
+                for (let i = 0; i < 5; i++) {
+                    const checkIndex = Math.max(0, Math.min(63, newIndex + i));
+                    if (!gameState.gameBoard[checkIndex].content && gameState.gameBoard[checkIndex].type !== 'start' && gameState.gameBoard[checkIndex].type !== 'final') {
+                        emptyCell = checkIndex;
+                        break;
+                    }
+                    
+                    const checkIndex2 = Math.max(0, Math.min(63, newIndex - i));
+                    if (!gameState.gameBoard[checkIndex2].content && gameState.gameBoard[checkIndex2].type !== 'start' && gameState.gameBoard[checkIndex2].type !== 'final') {
+                        emptyCell = checkIndex2;
+                        break;
+                    }
+                }
+                
+                if (emptyCell !== null) {
+                    // Déplacer le démon
+                    const demon = cell.content;
+                    cell.content = null;
+                    gameState.gameBoard[emptyCell].content = demon;
+                    gameState.gameBoard[emptyCell].type = 'demon';
+                    
+                    addLogEntry(`Prue utilise sa Télékinésie pour déplacer ${demon.name} vers la position ${emptyCell}.`, '👁️');
+                    renderGameBoard();
+                } else {
+                    addLogEntry(`Prue tente de déplacer ${cell.content.name} mais aucun espace n'est disponible.`, '👁️');
+                }
+            }
+        }
+
+        // Piper - Immobilisation: geler une cible
+        function promptToFreeze() {
+            const freezableTargets = [];
+            
+            // Ajouter les autres joueurs
+            gameState.players.forEach((p, i) => {
+                if (i !== gameState.currentPlayerIndex && p.frozenTurns === 0) {
+                    freezableTargets.push({
+                        type: 'player',
+                        index: i,
+                        name: p.name
+                    });
+                }
+            });
+            
+            // Ajouter les démons sur le plateau
+            gameState.gameBoard.forEach((cell, i) => {
+                if (cell.type === 'demon' && cell.content && !cell.content.skipTurn) {
+                    freezableTargets.push({
+                        type: 'demon',
+                        index: i,
+                        name: cell.content.name
+                    });
+                }
+            });
+            
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventImage = document.getElementById('eventImage');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = "Immobilisation";
+            eventDescription.textContent = "Choisissez une cible à immobiliser:";
+            eventImage.src = "https://i.imgur.com/JQZ1JQh.jpg";
+            
+            let options = '<option value="">-- Choisir --</option>';
+            freezableTargets.forEach(target => {
+                options += `<option value="${target.type}-${target.index}">${target.name}</option>`;
+            });
+            
+            eventActions.innerHTML = `
+                <select id="freezeTarget">
+                    ${options}
+                </select>
+                <button onclick="executeFreeze()">Immobiliser</button>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+
+        function executeFreeze() {
+            const target = document.getElementById('freezeTarget').value;
+            
+            if (!target) {
+                closeModal();
+                return;
+            }
+            
+            const [type, index] = target.split('-');
+            const player = gameState.players[gameState.currentPlayerIndex];
+            
+            closeModal();
+            
+            if (type === 'player') {
+                const targetPlayer = gameState.players[parseInt(index)];
+                targetPlayer.frozenTurns = player.level >= 2 ? 2 : 1;
+                addLogEntry(`Piper immobilise ${targetPlayer.name} pour ${targetPlayer.frozenTurns} tour${targetPlayer.frozenTurns > 1 ? 's' : ''}!`, '❄️');
+            } else if (type === 'demon') {
+                const cell = gameState.gameBoard[parseInt(index)];
+                cell.content.skipTurn = true;
+                addLogEntry(`Piper immobilise ${cell.content.name} pour 1 tour!`, '❄️');
+            }
+        }
+
+        // Phoebe - Prémonition: voir les prochaines cases
+        function showNextCells() {
+            const player = gameState.players[gameState.currentPlayerIndex];
+            const nextPositions = [];
+            const visionRange = player.level >= 2 ? 5 : 3;
+            
+            for (let i = 1; i <= visionRange; i++) {
+                const pos = player.position + i;
+                if (pos < 64) {
+                    nextPositions.push({
+                        position: pos,
+                        cell: gameState.gameBoard[pos]
+                    });
+                }
+            }
+            
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventImage = document.getElementById('eventImage');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = "Prémonition";
+            eventDescription.innerHTML = `
+                <p>Phoebe voit les ${visionRange} prochaines cases devant elle:</p>
+                <ul>
+                    ${nextPositions.map(item => {
+                        let desc = `Position ${item.position}: `;
+                        if (item.cell.type === 'demon' && item.cell.content) {
+                            desc += `Démon ${item.cell.content.name}`;
+                        } else if (item.cell.type === 'item' && item.cell.content) {
+                            desc += `Objet ${item.cell.content.name}`;
+                        } else if (item.cell.type === 'power') {
+                            desc += `Case Pouvoir`;
+                        } else if (item.cell.type === 'trap') {
+                            desc += `Piège ${item.cell.content.name}`;
+                        } else if (item.cell.type === 'event') {
+                            desc += `Événement ${item.cell.content.name}`;
+                        } else if (item.cell.type === 'final') {
+                            desc += `Source de Tout Mal`;
+                        } else if (item.cell.type === 'start') {
+                            desc += `Manoir Halliwell`;
+                        } else {
+                            desc += `Case Normale`;
+                        }
+                        return `<li>${desc}</li>`;
+                    }).join('')}
+                </ul>
+                ${player.level >= 2 ? `<p>Phoebe partage sa vision avec les autres joueurs!</p>` : ''}
+            `;
+            eventImage.src = "https://i.imgur.com/JQZ1JQh.jpg";
+            
+            eventActions.innerHTML = `
+                <button onclick="closeModal()">Fermer</button>
+            `;
+            
+            modal.style.display = 'flex';
+            
+            // Si le niveau est suffisant, révéler aussi aux autres joueurs
+            if (player.level >= 2) {
+                gameState.players.forEach(p => {
+                    if (p !== player) {
+                        addLogEntry(`${p.name} bénéficie de la Prémonition améliorée de Phoebe!`, '🔮');
+                    }
+                });
+            }
+        }
+
+        // Paige - Orb: se téléporter
+        function promptToTeleport() {
+            const player = gameState.players[gameState.currentPlayerIndex];
+            const emptyCells = gameState.gameBoard
+                .map((cell, index) => ({...cell, index}))
+                .filter(cell => 
+                    cell.type !== 'demon' && 
+                    !gameState.players.some(p => p.position === cell.index) &&
+                    cell.index !== player.position
+                );
+            
+            // Si niveau 2+, peut emporter un autre joueur
+            const canTakePassenger = player.level >= 2;
+            let passengerOptions = '';
+            
+            if (canTakePassenger) {
+                const otherPlayers = gameState.players.filter((p, i) => 
+                    i !== gameState.currentPlayerIndex && 
+                    p.position !== 0 && // Ne pas prendre au manoir
+                    p.position !== 63 // Ne pas prendre à la case finale
+                );
+                
+                if (otherPlayers.length > 0) {
+                    passengerOptions = `
+                        <div style="margin: 15px 0;">
+                            <label for="passenger">Emporter un autre joueur:</label>
+                            <select id="passenger">
+                                <option value="">Non</option>
+                                ${otherPlayers.map(p => `<option value="${p.name}">${p.name}</option>`).join('')}
+                            </select>
+                        </div>
+                    `;
+                }
+            }
+            
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventImage = document.getElementById('eventImage');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = "Téléportation par Orb";
+            eventDescription.innerHTML = `
+                <p>Choisissez une case libre pour vous téléporter:</p>
+                ${passengerOptions}
+            `;
+            eventImage.src = "https://i.imgur.com/JQZ1JQh.jpg";
+            
+            let options = '';
+            emptyCells.forEach(cell => {
+                let desc = `Position ${cell.index}: `;
+                if (cell.type === 'item' && cell.content) {
+                    desc += `Objet ${cell.content.name}`;
+                } else if (cell.type === 'power') {
+                    desc += `Case Pouvoir`;
+                } else if (cell.type === 'trap') {
+                    desc += `Piège ${cell.content.name}`;
+                } else if (cell.type === 'event') {
+                    desc += `Événement ${cell.content.name}`;
+                } else if (cell.type === 'final') {
+                    desc += `Source de Tout Mal`;
+                } else if (cell.type === 'start') {
+                    desc += `Manoir Halliwell`;
+                } else {
+                    desc += `Case Normale`;
+                }
+                options += `<option value="${cell.index}">${desc}</option>`;
+            });
+            
+            eventActions.innerHTML = `
+                <select id="teleportTarget">
+                    ${options}
+                </select>
+                ${passengerOptions}
+                <button onclick="executeTeleport()">Se téléporter</button>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+
+        function executeTeleport() {
+            const targetPos = parseInt(document.getElementById('teleportTarget').value);
+            const player = gameState.players[gameState.currentPlayerIndex];
+            const passengerSelect = document.getElementById('passenger');
+            const passengerName = passengerSelect ? passengerSelect.value : '';
+            
+            let passenger = null;
+            if (passengerName) {
+                passenger = gameState.players.find(p => p.name === passengerName);
+            }
+            
+            player.position = targetPos;
+            
+            if (passenger) {
+                passenger.position = targetPos;
+                addLogEntry(`Paige utilise son pouvoir d'Orb pour se téléporter avec ${passenger.name} à la position ${targetPos}!`, '✨');
+            } else {
+                addLogEntry(`Paige utilise son pouvoir d'Orb pour se téléporter à la position ${targetPos}!`, '✨');
+            }
+            
+            closeModal();
+            renderGameBoard();
+            updatePlayerInfo();
+            
+            checkCellEvent(targetPos);
+        }
+
+        // Fin du tour
+        function endTurn() {
+            const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+            currentPlayer.endTurn();
+            
+            gameState.diceRolled = false;
+            gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+            
+            document.getElementById('rollDiceBtn').disabled = false;
+            document.getElementById('endTurnBtn').disabled = true;
+            document.getElementById('usePowerBtn').disabled = !currentPlayer.canUsePower();
+            document.getElementById('useItemBtn').disabled = currentPlayer.inventory.length === 0;
+            
+            updatePlayerInfo();
+            addLogEntry(`Tour terminé. C'est maintenant au tour de ${gameState.players[gameState.currentPlayerIndex].name}.`, '🔄');
+        }
+
+        // Fin du jeu
+        function endGame(winner) {
+            const modal = document.getElementById('eventModal');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            const eventImage = document.getElementById('eventImage');
+            const eventActions = document.getElementById('eventActions');
+            
+            eventTitle.textContent = "Victoire!";
+            eventDescription.innerHTML = `
+                <p>Félicitations <strong>${winner.name}</strong>!</p>
+                <p>Vous avez collecté assez d'objets magiques, vaincu la Source de Tout Mal et retourné au Manoir Halliwell.</p>
+                <p>Vous avez sauvé le monde des démons!</p>
+                <p>Niveau final: ${winner.level}</p>
+                <p>Objets collectés: ${winner.inventory.length}</p>
+                <p>Démons vaincus: ${gameState.demonDefeatedCount}</p>
+            `;
+            eventImage.src = winner.image;
+            
+            eventActions.innerHTML = `
+                <button onclick="resetGame()">Nouvelle Partie</button>
+            `;
+            
+            modal.style.display = 'flex';
+            
+            addLogEntry(`=== ${winner.name} A GAGNÉ LA PARTIE! ===`, '🏆');
+            unlockAchievement("power_of_three");
+            
+            // Vérifier le succès de maître des pouvoirs
+            if (gameState.powerUsedCount >= 10) {
+                unlockAchievement("master_powers");
+            }
+        }
+
+        // Débloquer un succès
+        function unlockAchievement(achievementId) {
+            const achievement = gameState.achievements.find(a => a.id === achievementId);
+            if (achievement && !achievement.unlocked) {
+                achievement.unlocked = true;
+                addLogEntry(`Succès débloqué: ${achievement.name}! ${achievement.description}`, '🏅');
+                
+                // Mettre à jour l'onglet des succès si ouvert
+                const achievementsTab = document.getElementById('achievementsTab');
+                if (achievementsTab) {
+                    const achievementElement = achievementsTab.querySelector(`[data-achievement="${achievementId}"]`);
+                    if (achievementElement) {
+                        achievementElement.classList.add('unlocked');
+                    }
+                }
+            }
+        }
+
+        // Réinitialiser le jeu
+        function resetGame() {
+            closeModal();
+            initGame();
+        }
+
+        // Fermer le modal
+        function closeModal() {
+            document.getElementById('eventModal').style.display = 'none';
+            document.getElementById('rulesModal').style.display = 'none';
+            document.getElementById('combatModal').style.display = 'none';
+            gameState.inCombat = false;
+        }
+
+        // Ajouter une entrée au journal
+        function addLogEntry(message, icon = 'ℹ️') {
+            const logEntries = document.getElementById('logEntries');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-icon">${icon}</span>
+                <span>${message}</span>
+            `;
+            
+            logEntries.appendChild(entry);
+            logEntries.scrollTop = logEntries.scrollHeight;
+            
+            gameState.logEntries.push({ message, icon });
+        }
+
+        // Créer des effets magiques visuels
+        function createMagicEffects() {
+            const effectsDiv = document.getElementById('magicEffects');
+            effectsDiv.innerHTML = '';
+            
+            for (let i = 0; i < 20; i++) {
+                const orb = document.createElement('div');
+                orb.className = 'orb';
+                orb.style.left = `${Math.random() * 100}%`;
+                orb.style.top = `${Math.random() * 100}%`;
+                orb.style.width = `${10 + Math.random() * 20}px`;
+                orb.style.height = orb.style.width;
+                orb.style.animationDuration = `${2 + Math.random() * 3}s`;
+                orb.style.animationDelay = `${Math.random() * 1}s`;
+                orb.style.backgroundColor = `hsl(${Math.random() * 60 + 270}, 70%, 70%)`;
+                
+                effectsDiv.appendChild(orb);
+            }
+            
+            setTimeout(() => {
+                effectsDiv.innerHTML = '';
+            }, 3000);
+        }
+
+        // Écouteurs d'événements
+        document.getElementById('rollDiceBtn').addEventListener('click', rollDice);
+        document.getElementById('endTurnBtn').addEventListener('click', endTurn);
+        document.getElementById('usePowerBtn').addEventListener('click', usePower);
+        document.getElementById('useItemBtn').addEventListener('click', () => {
+            const player = gameState.players[gameState.currentPlayerIndex];
+            if (player.inventory.length > 0) {
+                const modal = document.getElementById('eventModal');
+                const eventTitle = document.getElementById('eventTitle');
+                const eventDescription = document.getElementById('eventDescription');
+                const eventImage = document.getElementById('eventImage');
+                const eventActions = document.getElementById('eventActions');
+                
+                eventTitle.textContent = "Utiliser un objet";
+                eventDescription.innerHTML = `
+                    <p>Choisissez un objet à utiliser:</p>
+                    <div class="inventory-items">
+                        ${player.inventory.map(item => `
+                            <div class="inventory-item" data-item="${item.name}">
+                                <img src="${item.image}" alt="${item.name}">
+                                <div class="inventory-item-name">${item.name}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                eventImage.src = "https://i.imgur.com/JQZ1JQh.jpg";
+                
+                // Ajouter des écouteurs pour les objets
+                setTimeout(() => {
+                    document.querySelectorAll('.inventory-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            const itemName = item.getAttribute('data-item');
+                            useItemFromInventory(itemName);
+                            closeModal();
+                        });
+                    });
+                }, 100);
+                
+                modal.style.display = 'flex';
+            }
+        });
+        document.getElementById('rulesBtn').addEventListener('click', () => {
+            document.getElementById('rulesModal').style.display = 'flex';
+        });
+        
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', closeModal);
+        });
+        
+        // Gestion des onglets
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+                
+                // Désactiver tous les onglets
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Activer l'onglet sélectionné
+                tab.classList.add('active');
+                document.getElementById(`${tabId}Tab`).classList.add('active');
+            });
+        });
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('eventModal') || 
+                e.target === document.getElementById('rulesModal') ||
+                e.target === document.getElementById('combatModal')) {
+                closeModal();
+            }
+        });
+
+        // Initialiser le jeu au chargement
+        window.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
