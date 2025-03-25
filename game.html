@@ -6,6 +6,7 @@
     <title>Charmed - Le Jeu</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="custom.css">
     <style>
         /* Animation d'entrée pour la page de jeu */
         body {
@@ -106,25 +107,46 @@
         </div>
     </div>
     
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="game.js"></script>
     <script>
         // Récupération des paramètres de l'URL
         const urlParams = new URLSearchParams(window.location.search);
         const gameMode = urlParams.get('mode');
+        const gameId = urlParams.get('gameId');
         
         // Initialisation du jeu en fonction du mode
         document.addEventListener('DOMContentLoaded', function() {
+            // Si c'est une partie en ligne
+            if (gameMode === 'online' && gameId) {
+                // Récupérer les infos de connexion
+                const savedOnlineGame = localStorage.getItem('onlineGame');
+                if (savedOnlineGame) {
+                    const onlineGameData = JSON.parse(savedOnlineGame);
+                    
+                    // Initialiser le jeu en mode en ligne
+                    game.initOnlineMode(gameId, onlineGameData.playerId, onlineGameData.playerName);
+                    
+                    // Message d'information
+                    setTimeout(() => {
+                        game.showModal('Partie en Ligne', 'https://i.imgur.com/n5Q4LGU.png', 
+                            'Vous jouez maintenant en ligne avec d\'autres joueurs. Attendez votre tour pour jouer. Le panneau de droite affiche tous les joueurs actifs avec leur personnage.');
+                    }, 1000);
+                } else {
+                    // Erreur : pas d'informations de connexion
+                    alert("Erreur: Informations de connexion manquantes");
+                    window.location.href = 'index.html';
+                }
+            }
             // Si c'est une nouvelle partie
-            if (gameMode === 'new') {
-                // L'initialisation des joueurs est maintenant gérée dans game.js
-                
+            else if (gameMode === 'new') {
                 // Afficher un message de bienvenue
                 setTimeout(() => {
                     game.showModal('Nouvelle Aventure', 'https://i.imgur.com/n5Q4LGU.png', 
                         'Bienvenue dans le manoir Halliwell. Les forces du mal sont de plus en plus actives et menacent de détruire le Pouvoir des Trois. Utilisez vos pouvoirs avec sagesse pour rétablir l\'équilibre entre le bien et le mal.');
-                }, 1000); // Délai pour s'assurer que le jeu est initialisé
+                }, 1000);
             }
-            // Si c'est une partie chargée (à implémenter)
+            // Si c'est une partie chargée
             else if (gameMode === 'load') {
                 // Charger les données sauvegardées
                 const savedGame = localStorage.getItem('savedGame');
@@ -132,7 +154,7 @@
                     // Restaurer l'état du jeu
                     const gameState = JSON.parse(savedGame);
                     // Appliquer l'état sauvegardé
-                    // Implémenter cette partie plus tard
+                    game.loadGame(gameState);
                     
                     game.addLogEntry("Partie chargée avec succès!");
                 } else {
@@ -149,7 +171,11 @@
                 players: game.players,
                 currentPlayerIndex: game.currentPlayerIndex,
                 board: game.board,
-                // Autres données à sauvegarder
+                playerStates: game.playerStates,
+                items: game.items,
+                demons: game.demons,
+                gameStarted: game.gameStarted,
+                gameOver: game.gameOver
             };
             
             // Sauvegarder dans le localStorage

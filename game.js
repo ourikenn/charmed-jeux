@@ -147,6 +147,7 @@ const game = {
         gameId: null,
         playerId: null,
         isActive: false,
+        playerName: null,
         
         // Initialiser le mode en ligne
         init: function() {
@@ -163,6 +164,7 @@ const game = {
                 // Récupérer les informations stockées
                 const savedGame = JSON.parse(localStorage.getItem('onlineGame') || '{}');
                 this.playerId = savedGame.playerId;
+                this.playerName = savedGame.playerName;
                 
                 // Initialiser la connexion socket
                 this.initSocket();
@@ -274,27 +276,29 @@ const game = {
         
         // Synchroniser l'état du jeu avec le serveur
         syncGameState: function() {
-            this.socket.emit('getGameState', this.gameId, (data) => {
-                if (data.success) {
-                    // Mettre à jour l'état local du jeu
-                    this.updateLocalGameState(data.game);
+            if (!this.socket) return;
+            
+            this.socket.emit('getGameState', this.gameId, (response) => {
+                if (response.success) {
+                    console.log("État du jeu synchronisé:", response.game);
                     
-                    // Récupérer les logs précédents
-                    this.syncGameLogs();
+                    // Mettre à jour l'état local
+                    this.updateLocalGameState(response.game);
+                    
+                    // Forcer le rendu des éléments visuels
+                    this.ensureVisualElements();
                 }
             });
-        },
-        
-        // Synchroniser les logs du jeu
-        syncGameLogs: function() {
-            this.socket.emit('getGameLogs', this.gameId, (data) => {
-                if (data.success && data.logs) {
+            
+            // Récupérer également les logs du jeu
+            this.socket.emit('getGameLogs', this.gameId, (response) => {
+                if (response.success) {
                     // Vider le journal actuel
                     const gameLog = document.getElementById('gameLog');
-                    gameLog.innerHTML = '';
+                    if (gameLog) gameLog.innerHTML = '';
                     
-                    // Ajouter tous les logs précédents
-                    data.logs.forEach(log => {
+                    // Ajouter tous les logs
+                    response.logs.forEach(log => {
                         game.addLogEntry(log.message);
                     });
                 }
@@ -542,6 +546,32 @@ const game = {
             
             this.socket.emit('endTurn');
             return true;
+        },
+        
+        // S'assurer que tous les éléments visuels sont correctement affichés
+        ensureVisualElements: function() {
+            console.log("Vérification des éléments visuels...");
+            
+            // S'assurer que le plateau existe et est visible
+            const gameBoard = document.getElementById('gameBoard');
+            if (!gameBoard || gameBoard.children.length === 0) {
+                console.log("Reconstruction forcée du plateau de jeu...");
+                game.createBoard();
+            }
+            
+            // S'assurer que les joueurs sont affichés
+            const playerInfo = document.getElementById('playerInfo');
+            if (!playerInfo || playerInfo.children.length === 0) {
+                console.log("Reconstruction forcée des cartes de joueurs...");
+                game.renderPlayers();
+            }
+            
+            // S'assurer que les pions sont sur le plateau
+            const playerPieces = document.querySelectorAll('.player');
+            if (playerPieces.length === 0) {
+                console.log("Reconstruction forcée des pions de joueurs...");
+                game.updatePlayerPositions();
+            }
         }
     },
     
@@ -1672,6 +1702,138 @@ const game = {
                 effectElement.remove();
             }, 1000);
         }, 1500);
+    },
+    
+    // Fonction pour charger une partie sauvegardée
+    loadGame: function(gameState) {
+        // Restaurer les joueurs
+        this.players = gameState.players || [];
+        
+        // Restaurer l'index du joueur courant
+        this.currentPlayerIndex = gameState.currentPlayerIndex || 0;
+        
+        // Restaurer le plateau
+        this.board = gameState.board || [];
+        
+        // Restaurer les états des joueurs
+        this.playerStates = gameState.playerStates || [];
+        
+        // Restaurer les objets et démons
+        this.items = gameState.items || [];
+        this.demons = gameState.demons || [];
+        
+        // Restaurer l'état du jeu
+        this.gameStarted = gameState.gameStarted || false;
+        this.gameOver = gameState.gameOver || false;
+        
+        // Mettre à jour l'interface
+        this.createBoard();
+        this.renderPlayers();
+        this.showTurnIndicator();
+    },
+    
+    // Initialiser le jeu en mode en ligne
+    initOnlineMode: function(gameId, playerId, playerName) {
+        console.log(`Initialisation du mode en ligne pour le joueur ${playerName} (${playerId}) dans la partie ${gameId}`);
+        
+        // Configurer le mode en ligne
+        this.onlineMode.isActive = true;
+        this.onlineMode.gameId = gameId;
+        this.onlineMode.playerId = playerId;
+        this.onlineMode.playerName = playerName;
+        
+        // Se connecter au serveur
+        this.onlineMode.connectSocket();
+        
+        // Désactiver le bouton de sauvegarde en mode en ligne
+        const saveButton = document.getElementById('saveGame');
+        if (saveButton) saveButton.style.display = 'none';
+        
+        // Forcer un rendu complet après un court délai
+        setTimeout(() => {
+            // Forcer le rendu des éléments visuels
+            this.onlineMode.ensureVisualElements();
+        }, 1500);
+    },
+    
+    // Rendre le plateau à partir des données
+    renderBoard: function() {
+        console.log("Rendu du plateau de jeu...");
+        
+        const gameBoard = document.getElementById('gameBoard');
+        if (!gameBoard) {
+            console.error("Élément gameBoard non trouvé");
+            return;
+        }
+        
+        // Vider le plateau existant
+        gameBoard.innerHTML = '';
+        
+        // Si le plateau n'est pas défini, le créer
+        if (!this.board || this.board.length === 0) {
+            console.log("Création d'un nouveau plateau car aucun n'existe");
+            this.createBoard();
+            return;
+        }
+        
+        // Recréer les cellules à partir des données du plateau
+        this.board.forEach((cell, index) => {
+            const cellElement = document.createElement('div');
+            cellElement.className = 'cell';
+            cellElement.dataset.index = index;
+            
+            // Ajouter les classes en fonction du type de cellule
+            if (cell.type === 'special') {
+                cellElement.classList.add('special-cell');
+                cellElement.innerHTML = '<i class="fas fa-magic"></i>';
+            } else if (cell.type === 'demon') {
+                cellElement.classList.add('demon-cell');
+                
+                // Si nous avons un ID de démon spécifique
+                if (cell.demonId || (cell.content && cell.content.demonId)) {
+                    const demonId = cell.demonId || (cell.content && cell.content.demonId);
+                    const demon = this.demons.find(d => d.id === demonId);
+                    if (demon) {
+                        cellElement.innerHTML = `<img src="${demon.image}" alt="${demon.name}" class="cell-image">`;
+                    } else {
+                        // Image de démon par défaut
+                        cellElement.innerHTML = `<img src="https://i.imgur.com/JCBCsQJ.jpg" alt="Démon" class="cell-image">`;
+                    }
+                } else {
+                    // Image de démon générique
+                    cellElement.innerHTML = `<i class="fas fa-skull"></i>`;
+                }
+            } else if (cell.type === 'trap') {
+                cellElement.classList.add('trap-cell');
+                cellElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            } else if (cell.type === 'item') {
+                cellElement.classList.add('item-cell');
+                
+                // Si nous avons un ID d'objet spécifique
+                const itemId = cell.itemId || (cell.content && cell.content.itemId);
+                if (itemId) {
+                    const item = this.items.find(i => i.id === itemId);
+                    if (item) {
+                        cellElement.classList.add(`${item.type}-cell`);
+                        cellElement.dataset.itemId = item.id;
+                        cellElement.innerHTML = `<img src="${item.icon}" alt="${item.name}" class="cell-image">`;
+                    } else {
+                        // Image d'objet par défaut
+                        cellElement.innerHTML = `<img src="https://i.imgur.com/Jb0ckJn.jpg" alt="Objet" class="cell-image">`;
+                    }
+                } else {
+                    // Icône d'objet générique
+                    cellElement.innerHTML = `<i class="fas fa-gift"></i>`;
+                }
+            }
+            
+            gameBoard.appendChild(cellElement);
+        });
+        
+        // Mettre à jour la position des joueurs sur le plateau
+        this.updatePlayerPositions();
+        
+        console.log("Rendu du plateau terminé avec", this.board.length, "cellules");
     }
 };
 
