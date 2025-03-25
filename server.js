@@ -31,6 +31,85 @@ io.on('connection', (socket) => {
   // Stocker le socket pour référence
   connectedSockets[socket.id] = socket;
 
+  // Créer une nouvelle partie
+  socket.on('createGame', (playerName) => {
+    console.log(`${playerName} crée une nouvelle partie`);
+    
+    // Générer un ID unique pour la partie
+    const gameId = generateUniqueGameId();
+    
+    // Créer le joueur
+    const player = {
+      id: socket.id,
+      name: playerName,
+      character: null // Le personnage sera choisi plus tard
+    };
+    
+    // Créer la partie
+    const game = {
+      players: [player],
+      ready: false,
+      gameState: null
+    };
+    
+    // Stocker la partie
+    games[gameId] = game;
+    
+    // Associer le joueur à la partie
+    players[socket.id] = gameId;
+    
+    // Joindre le socket à la room de la partie
+    socket.join(gameId);
+    
+    // Notifier le client
+    socket.emit('gameCreated', {
+      success: true,
+      gameId: gameId,
+      playerId: socket.id,
+      game: game
+    });
+    
+    console.log(`Partie créée: ${gameId} par ${playerName}`);
+  });
+
+  // Sélection d'un personnage
+  socket.on('selectCharacter', (characterName) => {
+    const gameId = players[socket.id];
+    
+    if (!gameId || !games[gameId]) {
+      socket.emit('error', { message: "Partie non trouvée" });
+      return;
+    }
+    
+    const game = games[gameId];
+    const player = game.players.find(p => p.id === socket.id);
+    
+    if (!player) {
+      socket.emit('error', { message: "Joueur non trouvé" });
+      return;
+    }
+    
+    // Vérifier si le personnage est déjà pris
+    const isCharacterTaken = game.players.some(p => p.id !== socket.id && p.character === characterName);
+    
+    if (isCharacterTaken) {
+      socket.emit('error', { message: "Ce personnage est déjà pris" });
+      return;
+    }
+    
+    // Assigner le personnage au joueur
+    player.character = characterName;
+    
+    // Notifier tous les joueurs
+    io.to(gameId).emit('characterSelected', {
+      playerId: socket.id,
+      character: characterName,
+      game: game
+    });
+    
+    console.log(`Joueur ${player.name} a choisi ${characterName}`);
+  });
+
   // Un joueur rejoint ou crée une partie
   socket.on('joinGame', (data) => {
     const { gameId, playerName, character } = data;
@@ -481,6 +560,16 @@ io.on('connection', (socket) => {
 // Générer un ID de partie aléatoire
 function generateGameId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+// Générer un ID de partie unique qui n'existe pas déjà
+function generateUniqueGameId() {
+  let gameId;
+  do {
+    gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+  } while (games[gameId]); // Continuer tant que l'ID existe déjà
+  
+  return gameId;
 }
 
 // Initialiser l'état du jeu
