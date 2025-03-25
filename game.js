@@ -1622,6 +1622,11 @@ const game = {
     
     // Afficher une fenêtre modale
     showModal: function(title, image, content) {
+        // Si c'est une fenêtre de bienvenue ou de partie en ligne au démarrage, ne rien faire
+        if (title === 'Nouvelle Aventure' || title === 'Partie en Ligne') {
+            return; // Ne pas afficher ces modales
+        }
+        
         const modal = document.getElementById('eventModal');
         if (!modal) {
             console.error("Élément #eventModal introuvable");
