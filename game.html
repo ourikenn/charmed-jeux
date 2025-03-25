@@ -129,7 +129,7 @@
                     
                     // Message d'information
                     setTimeout(() => {
-                        game.showModal('Partie en Ligne', 'https://i.imgur.com/n5Q4LGU.png', 
+                        game.showModal('Partie en Ligne', null, 
                             'Vous jouez maintenant en ligne avec d\'autres joueurs. Attendez votre tour pour jouer. Le panneau de droite affiche tous les joueurs actifs avec leur personnage.');
                     }, 1000);
                 } else {
@@ -142,7 +142,7 @@
             else if (gameMode === 'new') {
                 // Afficher un message de bienvenue
                 setTimeout(() => {
-                    game.showModal('Nouvelle Aventure', 'https://i.imgur.com/n5Q4LGU.png', 
+                    game.showModal('Nouvelle Aventure', null, 
                         'Bienvenue dans le manoir Halliwell. Les forces du mal sont de plus en plus actives et menacent de détruire le Pouvoir des Trois. Utilisez vos pouvoirs avec sagesse pour rétablir l\'équilibre entre le bien et le mal.');
                 }, 1000);
             }

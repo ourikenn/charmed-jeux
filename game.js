@@ -1635,7 +1635,7 @@ const game = {
         
         const modalImage = document.getElementById('modalImage');
         if (modalImage) {
-            if (image) {
+            if (image && image !== 'https://i.imgur.com/n5Q4LGU.png') {
                 modalImage.src = image;
                 modalImage.style.display = 'block';
             } else {
@@ -1643,9 +1643,9 @@ const game = {
             }
         }
         
-        const modalContent = document.getElementById('modalContent');
-        if (modalContent) {
-            modalContent.innerHTML = content || '';
+        const modalText = document.getElementById('modalText');
+        if (modalText) {
+            modalText.innerHTML = content || '';
         }
         
         // Afficher les boutons appropriés
