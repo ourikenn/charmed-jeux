@@ -389,6 +389,9 @@
                 <a href="#" class="menu-button" id="load-game">REPRENDRE PARTIE</a>
             </li>
             <li class="menu-item">
+                <a href="#" class="menu-button" id="online-game">JOUER EN LIGNE</a>
+            </li>
+            <li class="menu-item">
                 <a href="#" class="menu-button" id="character-select">CHOIX DES PERSONNAGES</a>
             </li>
             <li class="menu-item">
@@ -474,6 +477,56 @@
         </div>
     </div>
     
+    <!-- Modal pour le mode en ligne -->
+    <div class="modal" id="online-modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-modal" id="closeOnlineModal">&times;</span>
+            <h2>Jouer en ligne</h2>
+            <div class="online-options">
+                <div class="create-game-section">
+                    <h3>Créer une nouvelle partie</h3>
+                    <div class="form-group">
+                        <label for="playerName">Votre nom :</label>
+                        <input type="text" id="playerName" class="online-input" placeholder="Entrez votre nom">
+                    </div>
+                    <button id="createGameBtn" class="modal-button">Créer partie</button>
+                </div>
+                
+                <div class="join-game-section" style="margin-top: 30px;">
+                    <h3>Rejoindre une partie</h3>
+                    <div class="form-group">
+                        <label for="gameCode">Code de la partie :</label>
+                        <input type="text" id="gameCode" class="online-input" placeholder="Entrez le code">
+                    </div>
+                    <div class="form-group">
+                        <label for="joinPlayerName">Votre nom :</label>
+                        <input type="text" id="joinPlayerName" class="online-input" placeholder="Entrez votre nom">
+                    </div>
+                    <button id="joinGameBtn" class="modal-button">Rejoindre partie</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal pour l'attente de la partie en ligne -->
+    <div class="modal" id="waiting-room-modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Salle d'attente</h2>
+            <p>Code de la partie: <span id="game-code-display" style="font-size: 24px; font-weight: bold; color: crimson;"></span></p>
+            <p>Partagez ce code avec vos amis pour qu'ils puissent rejoindre la partie.</p>
+            
+            <div id="players-list" style="margin: 20px 0; text-align: left;">
+                <h3>Joueurs connectés:</h3>
+                <ul id="connected-players" style="list-style-type: none; padding: 0;">
+                    <!-- Les joueurs seront ajoutés dynamiquement ici -->
+                </ul>
+            </div>
+            
+            <button id="start-online-game" class="modal-button" disabled>Commencer la partie</button>
+            <button id="cancel-online-game" class="modal-button">Annuler</button>
+        </div>
+    </div>
+    
     <!-- Ajouter l'élément audio juste avant la fermeture du body -->
     <audio id="background-music" preload="auto" loop>
         <source src="sounds/Charmed.mp3" type="audio/mpeg">
@@ -488,173 +541,39 @@
     </div>
     
     <script>
-        // Création des étoiles
-        function createStars() {
+        // Créer les étoiles en arrière-plan
+        document.addEventListener('DOMContentLoaded', function() {
             const starsContainer = document.getElementById('stars');
-            const starCount = 100;
             
-            for (let i = 0; i < starCount; i++) {
+            for (let i = 0; i < 150; i++) {
                 const star = document.createElement('div');
                 star.className = 'star';
+                
+                // Positionnement aléatoire
                 star.style.top = `${Math.random() * 100}%`;
                 star.style.left = `${Math.random() * 100}%`;
+                
+                // Délai d'animation aléatoire
                 star.style.animationDelay = `${Math.random() * 3}s`;
+                
                 starsContainer.appendChild(star);
             }
-        }
-        
-        // Gestionnaires de modales
-        function openModal(modalId) {
-            document.getElementById(modalId).style.display = 'block';
-        }
-        
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
-        
-        // Fonction pour gérer la musique
-        function setupMusic() {
-            const musicPlayer = document.getElementById('background-music');
-            const musicToggle = document.getElementById('music-toggle');
-            let isMusicPlaying = true; // Par défaut, la musique est active
             
-            // Vérifier si le fichier audio est correctement chargé
-            musicPlayer.addEventListener('loadeddata', function() {
-                console.log('Audio chargé avec succès:', musicPlayer.duration, 'secondes');
-                // Une fois l'audio chargé, on essaie de le lire
-                autoPlayAudio();
-            });
-            
-            // Tentative de lecture automatique avec contournement des restrictions du navigateur
-            function autoPlayAudio() {
-                console.log('Tentative de lecture automatique...');
-                
-                // Régler le volume à un niveau audible
-                musicPlayer.volume = 1.0;
-                
-                // Essayer de lancer la lecture
-                const playPromise = musicPlayer.play();
-                
-                if (playPromise !== undefined) {
-                    playPromise
-                        .then(() => {
-                            console.log('Lecture automatique réussie');
-                            isMusicPlaying = true;
-                            updateMusicIcon();
-                        })
-                        .catch((error) => {
-                            console.error('Erreur de lecture automatique:', error);
-                            console.log('Attente d\'interaction utilisateur...');
-                            isMusicPlaying = false;
-                            updateMusicIcon();
-                            
-                            // Ajouter un écouteur d'événement pour lancer l'audio au premier clic
-                            document.addEventListener('click', function playOnFirstClick() {
-                                if (!musicPlayer.playing) {
-                                    console.log('Premier clic détecté, nouvelle tentative de lecture');
-                                    musicPlayer.play()
-                                        .then(() => {
-                                            console.log('Lecture démarrée après interaction');
-                                            isMusicPlaying = true;
-                                            updateMusicIcon();
-                                        })
-                                        .catch(err => console.error('Échec de lecture après interaction:', err));
-                                }
-                                document.removeEventListener('click', playOnFirstClick);
-                            }, { once: true });
-                        });
-                }
-            }
-            
-            // Fonction pour mettre à jour l'icône du bouton
-            function updateMusicIcon() {
-                musicToggle.innerHTML = isMusicPlaying ? 
-                    '<i class="fas fa-volume-up"></i>' : 
-                    '<i class="fas fa-volume-mute"></i>';
-                
-                if (isMusicPlaying) {
-                    musicToggle.classList.add('active');
-                } else {
-                    musicToggle.classList.remove('active');
-                }
-            }
-            
-            // Gestionnaire d'événement pour le bouton
-            musicToggle.addEventListener('click', function() {
-                console.log('Bouton audio cliqué, état actuel:', isMusicPlaying);
-                
-                if (isMusicPlaying) {
-                    musicPlayer.pause();
-                    isMusicPlaying = false;
-                    console.log('Audio mis en pause');
-                } else {
-                    musicPlayer.play()
-                        .then(() => console.log('Audio relancé'))
-                        .catch(err => console.error('Erreur lors de la relance de l\'audio:', err));
-                    isMusicPlaying = true;
-                }
-                
-                updateMusicIcon();
-            });
-            
-            // Détecter les erreurs de lecture
-            musicPlayer.addEventListener('error', function(e) {
-                console.error('Erreur audio:', e);
-                alert('Erreur lors du chargement de l\'audio. Vérifiez que le fichier existe et est accessible.');
-            });
-            
-            // S'assurer que l'icône reflète l'état initial
-            updateMusicIcon();
-            
-            // Tentative initiale de lecture
-            if (musicPlayer.readyState >= 2) { // HAVE_CURRENT_DATA ou supérieur
-                autoPlayAudio();
-            }
-        }
-        
-        // Initialisation
-        document.addEventListener('DOMContentLoaded', function() {
-            createStars();
-            setupMusic();
-            
-            // Gestionnaires d'événements pour le menu principal
+            // Gestionnaires d'événements pour le menu
             document.getElementById('new-game').addEventListener('click', function() {
-                // Vérifier si le nombre de joueurs et les personnages ont été choisis
-                const playerCount = localStorage.getItem('playerCount');
-                const selectedPlayers = JSON.parse(localStorage.getItem('selectedPlayers') || '[]');
-                
-                if (!playerCount) {
-                    alert('Veuillez sélectionner le nombre de joueurs avant de commencer une partie');
-                    openModal('player-modal');
-                    return;
-                }
-                
-                if (selectedPlayers.length < parseInt(playerCount)) {
-                    alert('Veuillez sélectionner les personnages pour chaque joueur');
-                    openPlayerSelectionModal();
-                    return;
-                }
-                
-                // Activer la transition avant de rediriger
-                const transitionOverlay = document.getElementById('transition-overlay');
-                transitionOverlay.classList.add('active');
-                
-                // Rediriger vers le jeu après l'animation
-                setTimeout(function() {
-                    window.location.href = 'game.html?mode=new';
-                }, 2500);
+                startNewGame('new');
             });
             
             document.getElementById('load-game').addEventListener('click', function() {
-                openModal('load-modal');
+                startNewGame('load');
             });
             
             document.getElementById('character-select').addEventListener('click', function() {
-                openModal('character-modal');
+                document.getElementById('character-modal').style.display = 'block';
             });
             
             document.getElementById('player-count').addEventListener('click', function() {
-                openModal('player-modal');
+                document.getElementById('player-count-modal').style.display = 'block';
             });
             
             document.getElementById('quit-game').addEventListener('click', function() {
@@ -663,232 +582,52 @@
                 }
             });
             
-            // Gestionnaires pour les modales
-            document.getElementById('close-character-modal').addEventListener('click', function() {
-                closeModal('character-modal');
-            });
-            
-            document.getElementById('close-player-modal').addEventListener('click', function() {
-                closeModal('player-modal');
-            });
-            
-            document.getElementById('close-load-modal').addEventListener('click', function() {
-                closeModal('load-modal');
-            });
-            
-            // Sélection des personnages
-            const characters = document.querySelectorAll('.character');
-            characters.forEach(character => {
-                character.addEventListener('click', function() {
-                    characters.forEach(c => c.classList.remove('selected'));
-                    this.classList.add('selected');
-                    
-                    // Afficher un message indiquant le personnage sélectionné
-                    const characterName = this.querySelector('.character-name').textContent;
-                    const messageContainer = document.getElementById('character-message') || document.createElement('div');
-                    messageContainer.id = 'character-message';
-                    messageContainer.className = 'selection-message';
-                    messageContainer.textContent = `${characterName} sélectionné(e)`;
-                    
-                    const modalContent = document.querySelector('#character-modal .modal-content');
-                    if (!document.getElementById('character-message')) {
-                        modalContent.insertBefore(messageContainer, document.querySelector('#character-modal .modal-buttons'));
-                    }
+            // Fermer les modals
+            document.querySelectorAll('.close-modal').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.modal').forEach(function(modal) {
+                        modal.style.display = 'none';
+                    });
                 });
             });
             
             // Sélection du nombre de joueurs
-            const playerButtons = document.querySelectorAll('.player-count button');
-            playerButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    playerButtons.forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('.player-count button').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.player-count button').forEach(function(b) {
+                        b.classList.remove('selected');
+                    });
                     this.classList.add('selected');
+                    localStorage.setItem('playerCount', this.getAttribute('data-count'));
                 });
             });
             
-            // Confirmation des choix
-            document.getElementById('confirm-character').addEventListener('click', function() {
-                const selectedCharacter = document.querySelector('.character.selected');
-                if (selectedCharacter) {
-                    const characterId = selectedCharacter.dataset.character;
-                    localStorage.setItem('selectedCharacter', characterId);
-                    const characterName = selectedCharacter.querySelector('.character-name').textContent;
-                    alert(`Vous avez choisi de jouer avec ${characterName}`);
-                    closeModal('character-modal');
-                } else {
-                    alert('Veuillez sélectionner un personnage');
-                }
-            });
-            
-            document.getElementById('confirm-player-count').addEventListener('click', function() {
-                const selectedCount = document.querySelector('.player-count button.selected');
-                if (selectedCount) {
-                    const count = selectedCount.dataset.count;
-                    localStorage.setItem('playerCount', count);
-                    localStorage.removeItem('selectedPlayers'); // Réinitialiser les sélections précédentes
-                    alert(`Nombre de joueurs: ${count}`);
-                    closeModal('player-modal');
-                    
-                    // Ouvrir l'écran de sélection des personnages
-                    openPlayerSelectionModal();
-                } else {
-                    alert('Veuillez sélectionner un nombre de joueurs');
-                }
-            });
-            
-            document.getElementById('confirm-load').addEventListener('click', function() {
-                // Logique pour charger une partie sauvegardée
-                alert('Fonctionnalité à implémenter');
-                closeModal('load-modal');
-            });
-        });
-        
-        // Fonction pour ouvrir la sélection de personnages pour chaque joueur
-        function openPlayerSelectionModal() {
-            // Vérifier si la modale existe déjà
-            let playerSelectionModal = document.getElementById('player-selection-modal');
-            
-            // Si elle n'existe pas, la créer
-            if (!playerSelectionModal) {
-                playerSelectionModal = document.createElement('div');
-                playerSelectionModal.id = 'player-selection-modal';
-                playerSelectionModal.className = 'modal';
-                document.body.appendChild(playerSelectionModal);
-            }
-            
-            const playerCount = parseInt(localStorage.getItem('playerCount') || '1');
-            const selectedPlayers = JSON.parse(localStorage.getItem('selectedPlayers') || '[]');
-            const currentPlayer = selectedPlayers.length + 1;
-            
-            // Arrêter si tous les joueurs ont déjà choisi
-            if (currentPlayer > playerCount) {
-                return;
-            }
-            
-            // Tous les personnages disponibles
-            const allCharacters = [
-                {id: 'piper', name: 'Piper', power: 'Immobilisation moléculaire', image: 'https://th.bing.com/th/id/R.e418e2e82e7d024893b72962bfa1fb03?rik=0qM8%2fp3Dzkr63A&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPiper-Halliwell-charmed-25593462-1912-2560.jpg&ehk=rxkknJzYQe06CdLUufNRS94f9bGVAWedZ7yJeX3j2Us%3d&risl=&pid=ImgRaw&r=0'},
-                {id: 'phoebe', name: 'Phoebe', power: 'Prémonition', image: 'https://usercontent2.hubstatic.com/14340833_f520.jpg'},
-                {id: 'prue', name: 'Prue', power: 'Télékinésie', image: 'https://th.bing.com/th/id/R.9898bd81a60bd0fb240e5c8a3ed8ec85?rik=QHMl3HpnNXX5Kg&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPrue-Halliwell-charmed-25593840-2141-2560.jpg&ehk=5FdgnbZowUevZ4QwBVZXNyZF7eSUZwcZb1MbS9MvcOg%3d&risl=&pid=ImgRaw&r=0'},
-                {id: 'paige', name: 'Paige', power: 'Téléportation d\'objets', image: 'https://images.saymedia-content.com/.image/ar_3:2%2Cc_limit%2Ccs_srgb%2Cfl_progressive%2Cq_auto:eco%2Cw_1400/MTc1MTE0NzE2OTA0MjM2MTI3/the-hairvolution-of-paige-halliwell-from-charmed.jpg'},
-                {id: 'leo', name: 'Leo', power: 'Être de Lumière', image: 'https://vignette.wikia.nocookie.net/charmed/images/c/c3/7x17-Leo.jpg/revision/latest?cb=20110125004234'},
-                {id: 'cole', name: 'Cole', power: 'Balthazar', image: 'https://th.bing.com/th/id/R.c8f0eba9a7ba1a10dd8d500b556f3b38?rik=7kuy7xFys9fDcg&riu=http%3a%2f%2fimg2.wikia.nocookie.net%2f__cb20110925135650%2fcharmed%2fimages%2f7%2f72%2fSeason-4-cole-05.jpg&ehk=6EIaa%2bvcITIVyCyaDptIuIOvBHDYY8KoihtCUv5nk0U%3d&risl=&pid=ImgRaw&r=0'}
-            ];
-            
-            // Créer le contenu de la modale avec les personnages déjà sélectionnés
-            let modalHTML = `
-                <div class="modal-content">
-                    <span class="close-modal" id="close-player-selection">&times;</span>
-                    <h2>Joueur ${currentPlayer}, choisissez votre personnage</h2>`;
-            
-            // Ajouter la section des personnages déjà choisis
-            if (selectedPlayers.length > 0) {
-                modalHTML += `
-                    <div class="selected-players-summary">
-                        <p>Personnages déjà choisis :</p>
-                        <div class="selected-players-list">`;
-                
-                selectedPlayers.forEach((player, index) => {
-                    const char = allCharacters.find(c => c.id === player.id);
-                    if (char) {
-                        modalHTML += `
-                            <div class="selected-player-item">
-                                <div class="player-info-tag">Joueur ${index + 1}</div>
-                                <img src="${char.image}" alt="${player.name}">
-                                <div class="name">${player.name}</div>
-                            </div>`;
-                    }
-                });
-                
-                modalHTML += `
-                        </div>
-                    </div>`;
-            }
-            
-            // Ajouter la section de sélection de personnage
-            modalHTML += `
-                    <div class="character-selection" id="player-character-selection">
-                        ${getAvailableCharactersHTML(selectedPlayers)}
-                    </div>
-                    <div class="modal-buttons">
-                        <button class="modal-button" id="confirm-player-selection">Confirmer</button>
-                    </div>
-                </div>`;
-            
-            playerSelectionModal.innerHTML = modalHTML;
-            
-            // Afficher la modale
-            playerSelectionModal.style.display = 'block';
-            
-            // Gérer les événements
-            document.getElementById('close-player-selection').addEventListener('click', function() {
-                playerSelectionModal.style.display = 'none';
-            });
-            
-            // Gestion de la sélection de personnages
-            const characters = document.querySelectorAll('#player-character-selection .character');
-            characters.forEach(character => {
+            // Sélection du personnage
+            document.querySelectorAll('.character').forEach(function(character) {
                 character.addEventListener('click', function() {
-                    characters.forEach(c => c.classList.remove('selected'));
+                    document.querySelectorAll('.character').forEach(function(c) {
+                        c.classList.remove('selected');
+                    });
                     this.classList.add('selected');
+                    localStorage.setItem('selectedCharacter', this.getAttribute('data-character'));
                 });
             });
             
-            // Confirmation de la sélection
-            document.getElementById('confirm-player-selection').addEventListener('click', function() {
-                const selectedCharacter = document.querySelector('#player-character-selection .character.selected');
-                if (selectedCharacter) {
-                    // Ajouter le personnage à la liste
-                    const character = {
-                        id: selectedCharacter.dataset.character,
-                        name: selectedCharacter.querySelector('.character-name').textContent
-                    };
-                    
-                    selectedPlayers.push(character);
-                    localStorage.setItem('selectedPlayers', JSON.stringify(selectedPlayers));
-                    
-                    // Fermer la modale actuelle
-                    playerSelectionModal.style.display = 'none';
-                    
-                    // Si tous les joueurs n'ont pas encore choisi, ouvrir pour le joueur suivant
-                    if (selectedPlayers.length < playerCount) {
-                        openPlayerSelectionModal();
-                    } else {
-                        alert(`Tous les joueurs ont choisi leur personnage ! Vous pouvez maintenant commencer la partie.`);
-                    }
-                } else {
-                    alert('Veuillez sélectionner un personnage');
-                }
-            });
-        }
-
-        // Fonction pour obtenir les HTML des personnages disponibles
-        function getAvailableCharactersHTML(selectedPlayers) {
-            // Obtenir les identifiants des personnages déjà sélectionnés
-            const selectedIds = selectedPlayers.map(p => p.id);
-            
-            // Tous les personnages disponibles
-            const allCharacters = [
-                {id: 'piper', name: 'Piper', power: 'Immobilisation moléculaire', image: 'https://th.bing.com/th/id/R.e418e2e82e7d024893b72962bfa1fb03?rik=0qM8%2fp3Dzkr63A&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPiper-Halliwell-charmed-25593462-1912-2560.jpg&ehk=rxkknJzYQe06CdLUufNRS94f9bGVAWedZ7yJeX3j2Us%3d&risl=&pid=ImgRaw&r=0'},
-                {id: 'phoebe', name: 'Phoebe', power: 'Prémonition', image: 'https://usercontent2.hubstatic.com/14340833_f520.jpg'},
-                {id: 'prue', name: 'Prue', power: 'Télékinésie', image: 'https://th.bing.com/th/id/R.9898bd81a60bd0fb240e5c8a3ed8ec85?rik=QHMl3HpnNXX5Kg&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPrue-Halliwell-charmed-25593840-2141-2560.jpg&ehk=5FdgnbZowUevZ4QwBVZXNyZF7eSUZwcZb1MbS9MvcOg%3d&risl=&pid=ImgRaw&r=0'},
-                {id: 'paige', name: 'Paige', power: 'Téléportation d\'objets', image: 'https://images.saymedia-content.com/.image/ar_3:2%2Cc_limit%2Ccs_srgb%2Cfl_progressive%2Cq_auto:eco%2Cw_1400/MTc1MTE0NzE2OTA0MjM2MTI3/the-hairvolution-of-paige-halliwell-from-charmed.jpg'},
-                {id: 'leo', name: 'Leo', power: 'Être de Lumière', image: 'https://vignette.wikia.nocookie.net/charmed/images/c/c3/7x17-Leo.jpg/revision/latest?cb=20110125004234'},
-                {id: 'cole', name: 'Cole', power: 'Balthazar', image: 'https://th.bing.com/th/id/R.c8f0eba9a7ba1a10dd8d500b556f3b38?rik=7kuy7xFys9fDcg&riu=http%3a%2f%2fimg2.wikia.nocookie.net%2f__cb20110925135650%2fcharmed%2fimages%2f7%2f72%2fSeason-4-cole-05.jpg&ehk=6EIaa%2bvcITIVyCyaDptIuIOvBHDYY8KoihtCUv5nk0U%3d&risl=&pid=ImgRaw&r=0'}
-            ];
-            
-            // Filtrer les personnages déjà choisis
-            const availableCharacters = allCharacters.filter(char => !selectedIds.includes(char.id));
-            
-            // Créer le HTML
-            return availableCharacters.map(char => `
-                <div class="character" data-character="${char.id}">
-                    <img src="${char.image}" alt="${char.name}" class="character-image">
-                    <div class="character-name">${char.name}</div>
-                    <div class="character-power">${char.power}</div>
-                </div>
-            `).join('');
-        }
+            // Démarrer une nouvelle partie
+            function startNewGame(mode) {
+                // Animer la transition
+                const overlay = document.getElementById('transition-overlay');
+                overlay.classList.add('active');
+                
+                // Rediriger après l'animation
+                setTimeout(function() {
+                    window.location.href = `game.html?mode=${mode}`;
+                }, 2500);
+            }
+        });
     </script>
+    
+    <!-- Script pour le mode en ligne -->
+    <script src="online.js"></script>
 </body>
 </html> 

@@ -141,6 +141,178 @@ const game = {
     gameStarted: false,
     gameOver: false,
     
+    // Mode multijoueur en ligne
+    onlineMode: {
+        socket: null,
+        gameId: null,
+        playerId: null,
+        isActive: false,
+        
+        // Initialiser le mode en ligne
+        init: function() {
+            // Vérifier si on est en mode online
+            const urlParams = new URLSearchParams(window.location.search);
+            const gameMode = urlParams.get('mode');
+            const gameId = urlParams.get('gameId');
+            
+            if (gameMode === 'online' && gameId) {
+                // Activer le mode en ligne
+                this.isActive = true;
+                this.gameId = gameId;
+                
+                // Récupérer les informations stockées
+                const savedGame = JSON.parse(localStorage.getItem('onlineGame') || '{}');
+                this.playerId = savedGame.playerId;
+                
+                // Initialiser la connexion socket
+                this.initSocket();
+                
+                // Afficher un message dans le journal
+                game.addLogEntry('Mode multijoueur en ligne activé');
+                game.addLogEntry(`Partie: ${this.gameId}`);
+                
+                return true;
+            }
+            
+            return false;
+        },
+        
+        // Initialiser la connexion socket
+        initSocket: function() {
+            // Charger la librairie Socket.io si nécessaire
+            if (typeof io === 'undefined') {
+                const script = document.createElement('script');
+                script.src = '/socket.io/socket.io.js';
+                script.onload = () => this.connectSocket();
+                document.head.appendChild(script);
+            } else {
+                this.connectSocket();
+            }
+        },
+        
+        // Se connecter au serveur Socket.io
+        connectSocket: function() {
+            this.socket = io();
+            
+            // Événement de connexion
+            this.socket.on('connect', () => {
+                console.log('Connecté au serveur en mode jeu');
+                
+                // Rejoindre la partie
+                this.socket.emit('joinGame', {
+                    gameId: this.gameId,
+                    playerId: this.playerId
+                });
+                
+                // Synchroniser l'état du jeu
+                this.syncGameState();
+            });
+            
+            // Événement de mise à jour de l'état du jeu
+            this.socket.on('gameStateUpdated', (data) => {
+                console.log('État du jeu mis à jour:', data);
+                
+                // Mettre à jour l'état local du jeu
+                this.updateLocalGameState(data.game);
+                
+                // Afficher l'action dans le journal
+                if (data.lastAction) {
+                    const player = data.game.players.find(p => p.id === data.lastAction.playerId);
+                    if (player) {
+                        game.addLogEntry(`${player.name} a effectué une action: ${data.lastAction.type}`);
+                    }
+                }
+            });
+            
+            // Événement de changement de tour
+            this.socket.on('turnChanged', (data) => {
+                // Mettre à jour l'index du joueur courant
+                game.currentPlayerIndex = data.currentPlayerIndex;
+                
+                // Vérifier si c'est mon tour
+                const isMyTurn = data.currentPlayerId === this.playerId;
+                
+                // Mettre à jour l'interface
+                this.updateTurnUI(isMyTurn);
+                
+                // Afficher un message dans le journal
+                const currentPlayer = game.players[game.currentPlayerIndex];
+                game.addLogEntry(`C'est au tour de ${currentPlayer.name}`);
+            });
+        },
+        
+        // Synchroniser l'état du jeu avec le serveur
+        syncGameState: function() {
+            // Demander l'état actuel du jeu au serveur
+            this.socket.emit('getGameState', this.gameId, (data) => {
+                if (data.success) {
+                    // Mettre à jour l'état local du jeu
+                    this.updateLocalGameState(data.game);
+                }
+            });
+        },
+        
+        // Mettre à jour l'état local du jeu
+        updateLocalGameState: function(serverGame) {
+            // Mettre à jour les joueurs
+            game.players = serverGame.players;
+            
+            // Mettre à jour l'index du joueur courant
+            game.currentPlayerIndex = serverGame.currentPlayerIndex;
+            
+            // Mettre à jour le plateau
+            game.board = serverGame.gameState.board;
+            
+            // Mettre à jour l'interface
+            game.renderPlayers();
+            game.renderBoard();
+            
+            // Mettre à jour l'état du tour
+            const isMyTurn = serverGame.players[serverGame.currentPlayerIndex].id === this.playerId;
+            this.updateTurnUI(isMyTurn);
+        },
+        
+        // Mettre à jour l'interface pour le tour actuel
+        updateTurnUI: function(isMyTurn) {
+            // Activer/désactiver les boutons d'action
+            document.getElementById('rollDice').disabled = !isMyTurn;
+            document.getElementById('useSpell').disabled = !isMyTurn;
+            document.getElementById('endTurn').disabled = !isMyTurn;
+            
+            // Mettre en évidence le joueur actuel
+            const playerCards = document.querySelectorAll('.player-card');
+            playerCards.forEach((card, index) => {
+                if (index === game.currentPlayerIndex) {
+                    card.classList.add('active-player');
+                } else {
+                    card.classList.remove('active-player');
+                }
+            });
+        },
+        
+        // Envoyer une action au serveur
+        sendAction: function(actionType, actionData) {
+            if (!this.isActive || !this.socket) return false;
+            
+            const action = {
+                type: actionType,
+                playerId: this.playerId,
+                ...actionData
+            };
+            
+            this.socket.emit('gameAction', action);
+            return true;
+        },
+        
+        // Terminer le tour
+        endTurn: function() {
+            if (!this.isActive || !this.socket) return false;
+            
+            this.socket.emit('endTurn');
+            return true;
+        }
+    },
+    
     // Initialisation du jeu
     init: function() {
         console.log("Initialisation du jeu avec les joueurs suivants:", this.players);
@@ -1153,119 +1325,46 @@ const game = {
     }
 };
 
-// Initialisation
-document.addEventListener('DOMContentLoaded', () => {
-    // Récupérer les paramètres de l'URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const gameMode = urlParams.get('mode');
+// Initialiser le jeu
+document.addEventListener('DOMContentLoaded', function() {
+    // Vérifier si on est en mode en ligne
+    const isOnline = game.onlineMode.init();
     
-    // Récupérer les données stockées
-    const selectedPlayers = JSON.parse(localStorage.getItem('selectedPlayers') || '[]');
-    const playerCount = localStorage.getItem('playerCount');
-    // Récupérer aussi l'ancien format pour compatibilité
-    const selectedCharacter = localStorage.getItem('selectedCharacter');
-    
-    console.log("Personnages sélectionnés:", selectedPlayers);
-    console.log("Ancien format - Personnage sélectionné:", selectedCharacter);
-    console.log("Nombre de joueurs:", playerCount);
-    
-    // Si c'est une nouvelle partie
-    if (gameMode === 'new') {
-        console.log(`Nouvelle partie: ${playerCount} joueurs, personnages sélectionnés:`, selectedPlayers);
-        
-        // Cas 1: Des personnages spécifiques ont été sélectionnés
-        if (selectedPlayers && selectedPlayers.length > 0) {
-            console.log("Utilisation des personnages sélectionnés spécifiquement");
-            
-            // Créer un nouveau tableau de joueurs basé sur les sélections
-            const selectedGamePlayers = [];
-            
-            // Pour chaque joueur sélectionné, trouver le personnage correspondant dans game.players
-            selectedPlayers.forEach((selected, index) => {
-                const characterIndex = game.players.findIndex(p => p.color === selected.id);
-                if (characterIndex >= 0) {
-                    // Copier le joueur pour éviter de modifier l'original
-                    const playerCopy = JSON.parse(JSON.stringify(game.players[characterIndex]));
-                    // S'assurer que les valeurs sont correctement initialisées
-                    playerCopy.health = playerCopy.health || 100;
-                    playerCopy.mana = playerCopy.mana || 50;
-                    playerCopy.position = 0;
-                    playerCopy.inventory = [];
-                    playerCopy.playerNumber = index + 1; // Ajouter un numéro de joueur
-                    selectedGamePlayers.push(playerCopy);
-                } else {
-                    console.warn(`Personnage introuvable pour l'ID: ${selected.id}`);
-                }
-            });
-            
-            // Remplacer le tableau de joueurs par défaut par les joueurs sélectionnés
-            if (selectedGamePlayers.length > 0) {
-                game.players = selectedGamePlayers;
-                console.log("Joueurs en jeu:", game.players);
-            } else {
-                console.warn("Aucun personnage valide trouvé dans la sélection, utilisation des personnages par défaut");
-            }
-        }
-        // Cas 2: Un seul personnage a été sélectionné (ancien format)
-        else if (selectedCharacter) {
-            console.log("Utilisation du personnage sélectionné unique (ancien format):", selectedCharacter);
-            
-            // Trouver le personnage dans la liste
-            const characterIndex = game.players.findIndex(p => p.color === selectedCharacter);
-            
-            if (characterIndex >= 0) {
-                // Déterminer le nombre de joueurs à utiliser
-                const nbPlayers = playerCount ? Math.min(parseInt(playerCount), game.players.length) : game.players.length;
-                
-                // Créer une copie de la liste des joueurs
-                const gamePlayers = JSON.parse(JSON.stringify(game.players.slice(0, nbPlayers)));
-                
-                // Déplacer le personnage sélectionné en premier
-                if (characterIndex < nbPlayers) {
-                    // Extraire le personnage de sa position actuelle
-                    const selectedPlayer = gamePlayers.splice(characterIndex, 1)[0];
-                    // Ajouter le personnage en première position
-                    gamePlayers.unshift(selectedPlayer);
-                }
-                
-                // Assigner les numéros de joueur
-                gamePlayers.forEach((player, index) => {
-                    player.playerNumber = index + 1;
-                });
-                
-                // Mettre à jour la liste des joueurs
-                game.players = gamePlayers;
-                console.log("Joueurs en jeu (ancien format):", game.players);
-            }
-        }
-        // Cas 3: Aucun personnage spécifique, mais nombre de joueurs défini
-        else if (playerCount) {
-            console.log("Aucun personnage spécifique choisi, utilisation du nombre de joueurs:", playerCount);
-            const activePlayerCount = parseInt(playerCount);
-            
-            if (activePlayerCount > 0 && activePlayerCount < game.players.length) {
-                // Créer une copie pour éviter de modifier les originaux
-                game.players = JSON.parse(JSON.stringify(game.players.slice(0, activePlayerCount)));
-                
-                // Ajouter des numéros de joueur
-                game.players.forEach((player, index) => {
-                    player.playerNumber = index + 1;
-                });
-                
-                console.log("Joueurs en jeu (basés sur le nombre):", game.players);
-            }
-        }
+    // Si on n'est pas en mode en ligne, initialiser normalement
+    if (!isOnline) {
+        game.init();
     }
     
-    // Réinitialiser l'index du joueur actuel pour commencer par le premier joueur
-    game.currentPlayerIndex = 0;
+    // Gérer le lancer de dé
+    document.getElementById('rollDice').addEventListener('click', function() {
+        if (game.onlineMode.isActive) {
+            // Mode en ligne - envoyer l'action au serveur
+            game.onlineMode.sendAction('rollDice', {});
+        } else {
+            // Mode local - traiter l'action localement
+            game.rollDice();
+        }
+    });
     
-    // Initialiser le jeu
-    game.init();
+    // Gérer la fin du tour
+    document.getElementById('endTurn').addEventListener('click', function() {
+        if (game.onlineMode.isActive) {
+            // Mode en ligne - envoyer l'action au serveur
+            game.onlineMode.endTurn();
+        } else {
+            // Mode local - traiter l'action localement
+            game.endTurn();
+        }
+    });
     
-    // Afficher un message indiquant le joueur qui commence
-    game.addLogEntry(`La partie commence avec ${game.players[0].name}. Lancez le dé pour commencer.`);
-    
-    // Afficher l'indicateur de tour
-    game.showTurnIndicator();
+    // Gérer l'utilisation d'un sort
+    document.getElementById('useSpell').addEventListener('click', function() {
+        if (game.onlineMode.isActive) {
+            // Mode en ligne - envoyer l'action au serveur
+            game.onlineMode.sendAction('useSpell', {});
+        } else {
+            // Mode local - traiter l'action localement
+            game.useSpell();
+        }
+    });
 });
