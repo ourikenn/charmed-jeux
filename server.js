@@ -89,6 +89,16 @@ io.on('connection', (socket) => {
     
     if (!gameId || !games[gameId]) return;
     
+    // Vérifier si le personnage n'est pas déjà pris par un autre joueur
+    const isCharacterTaken = games[gameId].players.some(
+      player => player.id !== playerId && player.character === character
+    );
+    
+    if (isCharacterTaken) {
+      socket.emit('error', {message: 'Ce personnage est déjà pris par un autre joueur'});
+      return;
+    }
+    
     // Trouver le joueur dans la partie
     const playerIndex = games[gameId].players.findIndex(player => player.id === playerId);
     if (playerIndex !== -1) {
