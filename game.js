@@ -198,14 +198,14 @@ const game = {
             this.socket.on('connect', () => {
                 console.log('Connecté au serveur en mode jeu');
                 
-                // Rejoindre la partie
-                this.socket.emit('joinGame', {
-                    gameId: this.gameId,
-                    playerId: this.playerId
-                });
-                
                 // Synchroniser l'état du jeu
                 this.syncGameState();
+                
+                // S'abonner aux logs du jeu
+                this.socket.on('gameLog', (logEntry) => {
+                    // Ajouter l'entrée au journal local
+                    game.addLogEntry(logEntry.message);
+                });
             });
             
             // Événement de mise à jour de l'état du jeu
@@ -215,12 +215,9 @@ const game = {
                 // Mettre à jour l'état local du jeu
                 this.updateLocalGameState(data.game);
                 
-                // Afficher l'action dans le journal
-                if (data.lastAction) {
-                    const player = data.game.players.find(p => p.id === data.lastAction.playerId);
-                    if (player) {
-                        game.addLogEntry(`${player.name} a effectué une action: ${data.lastAction.type}`);
-                    }
+                // Afficher le résultat du dé si c'était un lancer
+                if (data.lastAction && data.lastAction.type === 'rollDice') {
+                    this.showDiceResult(data.game.gameState.diceValue);
                 }
             });
             
@@ -243,13 +240,48 @@ const game = {
         
         // Synchroniser l'état du jeu avec le serveur
         syncGameState: function() {
-            // Demander l'état actuel du jeu au serveur
             this.socket.emit('getGameState', this.gameId, (data) => {
                 if (data.success) {
                     // Mettre à jour l'état local du jeu
                     this.updateLocalGameState(data.game);
+                    
+                    // Récupérer les logs précédents
+                    this.syncGameLogs();
                 }
             });
+        },
+        
+        // Synchroniser les logs du jeu
+        syncGameLogs: function() {
+            this.socket.emit('getGameLogs', this.gameId, (data) => {
+                if (data.success && data.logs) {
+                    // Vider le journal actuel
+                    const gameLog = document.getElementById('gameLog');
+                    gameLog.innerHTML = '';
+                    
+                    // Ajouter tous les logs précédents
+                    data.logs.forEach(log => {
+                        game.addLogEntry(log.message);
+                    });
+                }
+            });
+        },
+        
+        // Afficher le résultat du dé
+        showDiceResult: function(diceValue) {
+            // Créer une animation pour le dé, comme dans le mode local
+            const diceContainer = document.createElement('div');
+            diceContainer.className = 'dice-container';
+            diceContainer.innerHTML = `<div class="dice">${diceValue}</div>`;
+            document.body.appendChild(diceContainer);
+            
+            // Supprimer après l'animation
+            setTimeout(() => {
+                diceContainer.classList.add('fade-out');
+                setTimeout(() => {
+                    document.body.removeChild(diceContainer);
+                }, 500);
+            }, 1500);
         },
         
         // Mettre à jour l'état local du jeu
@@ -263,13 +295,89 @@ const game = {
             // Mettre à jour le plateau
             game.board = serverGame.gameState.board;
             
+            // Mettre à jour les états des joueurs
+            game.playerStates = serverGame.gameState.playerStates;
+            
+            // Mettre à jour les objets et démons
+            game.items = serverGame.gameState.items;
+            game.demons = serverGame.gameState.demons;
+            
+            // Mettre à jour l'état du jeu
+            game.gameStarted = serverGame.gameState.gameStarted;
+            game.gameOver = serverGame.gameState.gameOver;
+            
             // Mettre à jour l'interface
-            game.renderPlayers();
+            this.updateUI();
+        },
+        
+        // Mettre à jour toute l'interface
+        updateUI: function() {
+            // Mettre à jour le plateau
             game.renderBoard();
             
+            // Mettre à jour les fiches des joueurs
+            game.renderPlayers();
+            
+            // Mettre à jour l'indicateur de tour
+            game.showTurnIndicator();
+            
             // Mettre à jour l'état du tour
-            const isMyTurn = serverGame.players[serverGame.currentPlayerIndex].id === this.playerId;
+            const isMyTurn = game.players[game.currentPlayerIndex].id === this.playerId;
             this.updateTurnUI(isMyTurn);
+            
+            // Mettre à jour les compteurs et avatars
+            this.updatePlayersUI();
+        },
+        
+        // Mettre à jour l'interface des joueurs
+        updatePlayersUI: function() {
+            const playerCards = document.querySelectorAll('.player-card');
+            
+            // Pour chaque carte de joueur
+            playerCards.forEach((card, index) => {
+                const player = game.players[index];
+                const playerState = game.playerStates.find(p => p.id === player.id);
+                
+                if (player && playerState) {
+                    // Mettre à jour la santé et le mana
+                    const healthBar = card.querySelector('.health-bar');
+                    const manaBar = card.querySelector('.mana-bar');
+                    
+                    if (healthBar) {
+                        healthBar.style.width = `${playerState.health}%`;
+                        healthBar.textContent = `${playerState.health}%`;
+                    }
+                    
+                    if (manaBar) {
+                        manaBar.style.width = `${playerState.mana}%`;
+                        manaBar.textContent = `${playerState.mana}%`;
+                    }
+                    
+                    // Mettre à jour l'inventaire si affiché
+                    const inventoryList = card.querySelector('.inventory-list');
+                    if (inventoryList && playerState.inventory) {
+                        inventoryList.innerHTML = '';
+                        
+                        playerState.inventory.forEach(item => {
+                            const itemElement = document.createElement('div');
+                            itemElement.className = 'inventory-item';
+                            itemElement.innerHTML = `
+                                <img src="${item.icon}" alt="${item.name}">
+                                <span>${item.name}</span>
+                            `;
+                            
+                            // Ajouter l'événement de clic pour utiliser l'objet
+                            if (player.id === this.playerId) {
+                                itemElement.addEventListener('click', () => {
+                                    this.sendAction('useItem', { itemId: item.id });
+                                });
+                            }
+                            
+                            inventoryList.appendChild(itemElement);
+                        });
+                    }
+                }
+            });
         },
         
         // Mettre à jour l'interface pour le tour actuel
@@ -288,6 +396,11 @@ const game = {
                     card.classList.remove('active-player');
                 }
             });
+            
+            // Afficher un message si c'est mon tour
+            if (isMyTurn) {
+                game.addLogEntry('C\'est votre tour! Lancez le dé ou utilisez un objet.');
+            }
         },
         
         // Envoyer une action au serveur
@@ -1086,7 +1199,7 @@ const game = {
         
         if (updateStats) {
             // Mettre à jour l'affichage des joueurs
-            this.renderPlayers();
+            this.updateUI();
             
             // Réactiver les boutons de tour
             this.resetTurnButtons();
