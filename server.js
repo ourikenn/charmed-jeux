@@ -21,164 +21,383 @@ app.use(cors());
 const games = {};
 const players = {};
 
-// Quand un client se connecte
+// Variables globales pour stocker les connexions
+const connectedSockets = {};
+
+// Configurer Socket.io
 io.on('connection', (socket) => {
-  console.log('Nouveau joueur connecté:', socket.id);
+  console.log('Nouvelle connexion:', socket.id);
   
-  // Créer une nouvelle partie
-  socket.on('createGame', (playerName) => {
-    const gameId = generateGameId();
-    const playerId = socket.id;
+  // Stocker le socket pour référence
+  connectedSockets[socket.id] = socket;
+
+  // Un joueur rejoint ou crée une partie
+  socket.on('joinGame', (data) => {
+    const { gameId, playerName, character } = data;
+    console.log(`${playerName} essaie de rejoindre la partie ${gameId} avec le personnage ${character}`);
     
-    // Créer l'objet game
-    games[gameId] = {
-      id: gameId,
-      players: [{id: playerId, name: playerName, character: null}],
-      status: 'waiting', // waiting, started, ended
-      currentPlayerIndex: 0,
-      gameState: {} // État du jeu
+    let game = games[gameId];
+    let player = {
+      id: socket.id,
+      name: playerName,
+      character: character
     };
     
-    // Enregistrer l'ID de la partie pour ce joueur
-    players[playerId] = gameId;
-    
-    // Rejoindre la room de la partie
-    socket.join(gameId);
-    
-    // Confirmer la création de la partie
-    socket.emit('gameCreated', {gameId, playerId, game: games[gameId]});
-    console.log(`Partie ${gameId} créée par ${playerName}`);
-  });
-  
-  // Rejoindre une partie existante
-  socket.on('joinGame', ({gameId, playerName}) => {
-    const playerId = socket.id;
-    
-    // Vérifier si la partie existe
-    if (!games[gameId]) {
-      socket.emit('error', {message: 'Partie non trouvée'});
-      return;
-    }
-    
-    // Vérifier si la partie est pleine (max 4 joueurs)
-    if (games[gameId].players.length >= 4) {
-      socket.emit('error', {message: 'Partie pleine'});
-      return;
-    }
-    
-    // Ajouter le joueur à la partie
-    games[gameId].players.push({id: playerId, name: playerName, character: null});
-    players[playerId] = gameId;
-    
-    // Rejoindre la room de la partie
-    socket.join(gameId);
-    
-    // Informer tous les joueurs du nouveau joueur
-    io.to(gameId).emit('playerJoined', {
-      player: {id: playerId, name: playerName},
-      game: games[gameId]
-    });
-    
-    console.log(`${playerName} a rejoint la partie ${gameId}`);
-  });
-  
-  // Choisir un personnage
-  socket.on('selectCharacter', (character) => {
-    const playerId = socket.id;
-    const gameId = players[playerId];
-    
-    if (!gameId || !games[gameId]) return;
-    
-    // Vérifier si le personnage n'est pas déjà pris par un autre joueur
-    const isCharacterTaken = games[gameId].players.some(
-      player => player.id !== playerId && player.character === character
-    );
-    
-    if (isCharacterTaken) {
-      socket.emit('error', {message: 'Ce personnage est déjà pris par un autre joueur'});
-      return;
-    }
-    
-    // Trouver le joueur dans la partie
-    const playerIndex = games[gameId].players.findIndex(player => player.id === playerId);
-    if (playerIndex !== -1) {
-      games[gameId].players[playerIndex].character = character;
+    if (!game) {
+      console.log(`Création d'une nouvelle partie: ${gameId}`);
+      // Créer une nouvelle partie
+      game = {
+        players: [player],
+        ready: false,
+        gameState: null
+      };
+      games[gameId] = game;
+      socket.join(gameId);
+      socket.emit('joinedGame', { success: true, gameId, role: 'host' });
+      emitGameUpdate(gameId);
+    } else {
+      // Rejoindre une partie existante
+      if (game.players.length < 4 && !game.ready) {
+        // Vérifier si le personnage est déjà pris
+        const isCharacterTaken = game.players.some(p => p.character === character);
+        if (isCharacterTaken) {
+          socket.emit('joinedGame', { 
+            success: false, 
+            error: "Ce personnage est déjà pris. Veuillez en choisir un autre." 
+          });
+          return;
+        }
       
-      // Informer tous les joueurs de la sélection
-      io.to(gameId).emit('characterSelected', {
-        playerId,
-        character,
-        game: games[gameId]
+        socket.join(gameId);
+        game.players.push(player);
+        socket.emit('joinedGame', { success: true, gameId, role: 'player' });
+        emitGameUpdate(gameId);
+      } else {
+        // Partie pleine ou déjà commencée
+        socket.emit('joinedGame', { 
+          success: false, 
+          error: game.ready ? "La partie a déjà commencé." : "La partie est pleine."
+        });
+      }
+    }
+  });
+
+  // L'hôte démarre la partie
+  socket.on('startGame', (gameId) => {
+    const game = games[gameId];
+    if (game && game.players.length >= 2) {
+      game.ready = true;
+      game.gameState = initGameState(game.players);
+      io.to(gameId).emit('gameStarted', { success: true });
+      gameStateUpdated(gameId);
+      
+      // Annoncer le début de la partie
+      addGameLog(gameId, "La partie commence ! Bonne chance à tous !");
+      addGameLog(gameId, `C'est au tour de ${game.gameState.playerStates[0].name}`);
+    } else if (game) {
+      socket.emit('gameStarted', { 
+        success: false, 
+        error: "Il faut au moins 2 joueurs pour commencer."
       });
     }
   });
   
-  // Commencer la partie
-  socket.on('startGame', () => {
-    const playerId = socket.id;
-    const gameId = players[playerId];
+  // Un joueur effectue une action dans le jeu
+  socket.on('gameAction', (data) => {
+    const { gameId, action, targetId, itemId } = data;
+    const game = games[gameId];
     
-    if (!gameId || !games[gameId]) return;
-    
-    // Vérifier si tous les joueurs ont choisi un personnage
-    const allSelected = games[gameId].players.every(player => player.character);
-    
-    if (!allSelected) {
-      socket.emit('error', {message: 'Tous les joueurs doivent choisir un personnage'});
+    if (!game || !game.ready || !game.gameState) {
+      socket.emit('actionResult', { 
+        success: false, 
+        error: "La partie n'a pas encore commencé."
+      });
       return;
     }
-    
-    // Démarrer la partie
-    games[gameId].status = 'started';
-    games[gameId].gameState = initGameState(games[gameId].players);
-    
-    // Informer tous les joueurs du démarrage
-    io.to(gameId).emit('gameStarted', {
-      game: games[gameId]
-    });
-    
-    console.log(`Partie ${gameId} démarrée`);
-  });
-  
-  // Actions du jeu
-  socket.on('gameAction', (action) => {
-    const playerId = socket.id;
-    const gameId = players[playerId];
-    
-    if (!gameId || !games[gameId]) return;
     
     // Vérifier si c'est le tour du joueur
-    const currentPlayer = games[gameId].players[games[gameId].currentPlayerIndex];
-    if (currentPlayer.id !== playerId) {
-      socket.emit('error', {message: 'Ce n\'est pas votre tour'});
+    const playerIndex = game.gameState.playerStates.findIndex(p => p.id === socket.id);
+    if (playerIndex !== game.gameState.currentPlayerIndex) {
+      socket.emit('actionResult', { 
+        success: false, 
+        error: "Ce n'est pas votre tour."
+      });
       return;
     }
     
-    // Traiter l'action selon son type
-    processGameAction(gameId, playerId, action);
-    
-    // Envoyer le nouvel état du jeu à tous les joueurs
-    io.to(gameId).emit('gameStateUpdated', {
-      game: games[gameId],
-      lastAction: action
-    });
+    // Traiter l'action
+    processGameAction(gameId, socket.id, action, targetId, itemId);
   });
   
-  // Fin du tour
-  socket.on('endTurn', () => {
-    const playerId = socket.id;
-    const gameId = players[playerId];
+  // Un joueur utilise un objet
+  socket.on('useItem', (data) => {
+    const { gameId, itemId, targetId } = data;
+    const game = games[gameId];
     
-    if (!gameId || !games[gameId]) return;
+    if (!game || !game.gameState) return;
     
-    // Passer au joueur suivant
-    games[gameId].currentPlayerIndex = (games[gameId].currentPlayerIndex + 1) % games[gameId].players.length;
+    const player = game.gameState.playerStates.find(p => p.id === socket.id);
+    if (!player) return;
     
-    // Informer tous les joueurs du changement de tour
-    io.to(gameId).emit('turnChanged', {
-      currentPlayerIndex: games[gameId].currentPlayerIndex,
-      currentPlayerId: games[gameId].players[games[gameId].currentPlayerIndex].id
-    });
+    const item = player.inventory.find(i => i.id === itemId);
+    if (!item) {
+      socket.emit('actionResult', { success: false, message: "Vous ne possédez pas cet objet" });
+      return;
+    }
+    
+    if (item.type === 'potion') {
+      if (item.name === "Potion de Guérison") {
+        player.health = Math.min(100, player.health + item.power);
+        addGameLog(gameId, `${player.name} utilise une ${item.name} et récupère ${item.power} points de vie.`);
+      } else if (item.name === "Potion d'Énergie") {
+        player.mana = Math.min(100, player.mana + item.power);
+        addGameLog(gameId, `${player.name} utilise une ${item.name} et récupère ${item.power} points de mana.`);
+      }
+    } else if (item.type === 'spell' && game.gameState.activeDemon) {
+      // Utiliser un sort contre le démon
+      game.gameState.activeDemon.health -= item.power;
+      addGameLog(gameId, `${player.name} utilise ${item.name} contre ${game.gameState.activeDemon.name} et inflige ${item.power} points de dégâts.`);
+      
+      // Vérifier si le démon est vaincu
+      if (game.gameState.activeDemon.health <= 0) {
+        addGameLog(gameId, `${game.gameState.activeDemon.name} a été vaincu !`);
+        game.gameState.activeDemon = null;
+        nextTurn(gameId);
+      }
+    } else if (item.type === 'weapon' && game.gameState.activeDemon) {
+      // Utiliser une arme contre le démon
+      game.gameState.activeDemon.health -= item.power;
+      addGameLog(gameId, `${player.name} utilise ${item.name} contre ${game.gameState.activeDemon.name} et inflige ${item.power} points de dégâts.`);
+      
+      // Vérifier si le démon est vaincu
+      if (game.gameState.activeDemon.health <= 0) {
+        addGameLog(gameId, `${game.gameState.activeDemon.name} a été vaincu !`);
+        game.gameState.activeDemon = null;
+        nextTurn(gameId);
+      }
+    } else if (item.type === 'defense') {
+      // Activer une défense
+      player.defense = item.power;
+      addGameLog(gameId, `${player.name} active ${item.name} et gagne ${item.power} points de défense.`);
+    }
+    
+    // Retirer l'objet de l'inventaire
+    player.inventory = player.inventory.filter(i => i.id !== itemId);
+    
+    // Mettre à jour l'état du jeu
+    gameStateUpdated(gameId);
+    socket.emit('actionResult', { success: true });
+  });
+  
+  // Un joueur utilise son pouvoir spécial
+  socket.on('usePower', (data) => {
+    const { gameId, targetId } = data;
+    const game = games[gameId];
+    
+    if (!game || !game.gameState) return;
+    
+    const player = game.gameState.playerStates.find(p => p.id === socket.id);
+    if (!player) return;
+    
+    // Coût en mana pour utiliser un pouvoir
+    const manaCost = 15;
+    
+    if (player.mana < manaCost) {
+      socket.emit('actionResult', { success: false, message: "Vous n'avez pas assez de mana" });
+      return;
+    }
+    
+    // Effet du pouvoir selon le personnage
+    let effectDescription = "";
+    let powerEffective = false;
+    
+    if (player.character === "Piper" && game.gameState.activeDemon) {
+      // Pouvoir de Piper: immobilisation
+      game.gameState.activeDemon.frozen = true;
+      effectDescription = `${player.name} utilise son pouvoir d'immobilisation sur ${game.gameState.activeDemon.name}!`;
+      powerEffective = true;
+    } else if (player.character === "Phoebe") {
+      // Pouvoir de Phoebe: prémonition
+      const nextCell = game.gameState.board[player.position + 1] || { type: "safe" };
+      effectDescription = `${player.name} a une prémonition: la prochaine case contient ${
+        nextCell.type === 'demon' ? 'un démon' : 
+        nextCell.type === 'item' ? 'un objet' : 
+        nextCell.type === 'trap' ? 'un piège' : 
+        'rien de spécial'
+      }.`;
+      powerEffective = true;
+    } else if (player.character === "Prue" && game.gameState.activeDemon) {
+      // Pouvoir de Prue: télékinésie
+      game.gameState.activeDemon.health -= 20;
+      effectDescription = `${player.name} utilise sa télékinésie et inflige 20 points de dégâts à ${game.gameState.activeDemon.name}!`;
+      powerEffective = true;
+      
+      // Vérifier si le démon est vaincu
+      if (game.gameState.activeDemon.health <= 0) {
+        addGameLog(gameId, `${game.gameState.activeDemon.name} a été vaincu !`);
+        game.gameState.activeDemon = null;
+        nextTurn(gameId);
+      }
+    } else if (player.character === "Paige") {
+      // Pouvoir de Paige: téléportation d'objets
+      if (game.gameState.items.length > 0) {
+        const randomItem = game.gameState.items[Math.floor(Math.random() * game.gameState.items.length)];
+        player.inventory.push({...randomItem});
+        effectDescription = `${player.name} utilise son pouvoir de téléportation d'objets et obtient ${randomItem.name}!`;
+        powerEffective = true;
+      } else {
+        effectDescription = `${player.name} tente d'utiliser son pouvoir, mais aucun objet n'est disponible.`;
+      }
+    } else if (player.character === "Leo") {
+      // Pouvoir de Leo: guérison
+      if (targetId) {
+        const targetPlayer = game.gameState.playerStates.find(p => p.id === targetId);
+        if (targetPlayer) {
+          targetPlayer.health = Math.min(100, targetPlayer.health + 30);
+          effectDescription = `${player.name} guérit ${targetPlayer.name} qui récupère 30 points de vie!`;
+          powerEffective = true;
+        }
+      } else {
+        player.health = Math.min(100, player.health + 30);
+        effectDescription = `${player.name} se guérit et récupère 30 points de vie!`;
+        powerEffective = true;
+      }
+    } else if (player.character === "Cole" && game.gameState.activeDemon) {
+      // Pouvoir de Cole: boules de feu
+      game.gameState.activeDemon.health -= 30;
+      effectDescription = `${player.name} lance une boule de feu et inflige 30 points de dégâts à ${game.gameState.activeDemon.name}!`;
+      powerEffective = true;
+      
+      // Vérifier si le démon est vaincu
+      if (game.gameState.activeDemon.health <= 0) {
+        addGameLog(gameId, `${game.gameState.activeDemon.name} a été vaincu !`);
+        game.gameState.activeDemon = null;
+        nextTurn(gameId);
+      }
+    } else {
+      socket.emit('actionResult', { 
+        success: false, 
+        message: "Votre pouvoir n'est pas efficace dans cette situation"
+      });
+      return;
+    }
+    
+    if (powerEffective) {
+      player.mana -= manaCost;
+      addGameLog(gameId, effectDescription);
+      gameStateUpdated(gameId);
+      socket.emit('actionResult', { success: true });
+    }
+  });
+  
+  // Gestion d'un combat contre un démon
+  socket.on('combat', (data) => {
+    const { gameId, action } = data;
+    const game = games[gameId];
+    
+    if (!game || !game.gameState || !game.gameState.activeDemon) {
+      socket.emit('actionResult', { success: false, message: "Aucun combat en cours" });
+      return;
+    }
+    
+    const player = game.gameState.playerStates.find(p => p.id === socket.id);
+    if (!player) return;
+    
+    if (action === 'attack') {
+      // Attaque basique
+      const damage = 10 + Math.floor(Math.random() * 5);
+      game.gameState.activeDemon.health -= damage;
+      addGameLog(gameId, `${player.name} attaque ${game.gameState.activeDemon.name} et inflige ${damage} points de dégâts.`);
+      
+      // Contre-attaque du démon sauf s'il est immobilisé
+      if (!game.gameState.activeDemon.frozen) {
+        const demonDamage = game.gameState.activeDemon.power - (player.defense || 0);
+        const actualDamage = Math.max(5, demonDamage);
+        player.health -= actualDamage;
+        addGameLog(gameId, `${game.gameState.activeDemon.name} contre-attaque et inflige ${actualDamage} points de dégâts à ${player.name}.`);
+        
+        // Réinitialiser la défense après utilisation
+        player.defense = 0;
+      } else {
+        addGameLog(gameId, `${game.gameState.activeDemon.name} est immobilisé et ne peut pas contre-attaquer.`);
+        game.gameState.activeDemon.frozen = false;
+      }
+      
+      // Vérifier si le joueur est vaincu
+      if (player.health <= 0) {
+        player.health = 0;
+        addGameLog(gameId, `${player.name} a été vaincu par ${game.gameState.activeDemon.name}!`);
+        
+        // Vérifier si tous les joueurs sont vaincus
+        const allDefeated = game.gameState.playerStates.every(p => p.health <= 0);
+        if (allDefeated) {
+          game.gameState.gameOver = true;
+          addGameLog(gameId, "Tous les joueurs ont été vaincus! Partie terminée.");
+        } else {
+          // Passer au joueur suivant
+          game.gameState.activeDemon = null;
+          nextTurn(gameId);
+        }
+      }
+      
+      // Vérifier si le démon est vaincu
+      if (game.gameState.activeDemon && game.gameState.activeDemon.health <= 0) {
+        addGameLog(gameId, `${game.gameState.activeDemon.name} a été vaincu!`);
+        
+        // Récompense pour avoir vaincu le démon
+        player.mana += 10;
+        addGameLog(gameId, `${player.name} gagne 10 points de mana.`);
+        
+        game.gameState.activeDemon = null;
+        nextTurn(gameId);
+      }
+      
+      // Mettre à jour l'état du jeu
+      gameStateUpdated(gameId);
+      socket.emit('actionResult', { success: true });
+    } else if (action === 'flee') {
+      // Tenter de fuir
+      const fleeChance = Math.random();
+      
+      if (fleeChance > 0.6) {
+        // Réussite
+        addGameLog(gameId, `${player.name} réussit à fuir le combat!`);
+        game.gameState.activeDemon = null;
+        nextTurn(gameId);
+      } else {
+        // Échec
+        addGameLog(gameId, `${player.name} tente de fuir, mais échoue!`);
+        
+        // Le démon attaque
+        const demonDamage = Math.max(5, game.gameState.activeDemon.power - (player.defense || 0));
+        player.health -= demonDamage;
+        addGameLog(gameId, `${game.gameState.activeDemon.name} attaque et inflige ${demonDamage} points de dégâts à ${player.name}.`);
+        
+        // Réinitialiser la défense après utilisation
+        player.defense = 0;
+        
+        // Vérifier si le joueur est vaincu
+        if (player.health <= 0) {
+          player.health = 0;
+          addGameLog(gameId, `${player.name} a été vaincu par ${game.gameState.activeDemon.name}!`);
+          
+          // Vérifier si tous les joueurs sont vaincus
+          const allDefeated = game.gameState.playerStates.every(p => p.health <= 0);
+          if (allDefeated) {
+            game.gameState.gameOver = true;
+            addGameLog(gameId, "Tous les joueurs ont été vaincus! Partie terminée.");
+          } else {
+            // Passer au joueur suivant
+            game.gameState.activeDemon = null;
+            nextTurn(gameId);
+          }
+        }
+      }
+      
+      // Mettre à jour l'état du jeu
+      gameStateUpdated(gameId);
+      socket.emit('actionResult', { success: true });
+    }
   });
   
   // Chat
@@ -266,92 +485,116 @@ function generateGameId() {
 
 // Initialiser l'état du jeu
 function initGameState(players) {
+  // Créer un plateau de jeu identique au mode local
+  const board = createBoard();
+  
+  // Personnages et leurs pouvoirs
+  const characterPowers = {
+    "Piper": "Immobilisation moléculaire",
+    "Phoebe": "Prémonition",
+    "Prue": "Télékinésie",
+    "Paige": "Téléportation d'objets",
+    "Leo": "Guérison",
+    "Cole": "Boules de feu"
+  };
+  
+  // Initialiser les états des joueurs avec toutes les données du mode local
+  const playerStates = players.map(player => ({
+    id: player.id,
+    name: player.name,
+    color: player.character ? player.character.toLowerCase() : 'piper',
+    health: 100,
+    mana: player.character === 'Leo' ? 70 : (player.character === 'Cole' ? 60 : 50),
+    position: 0,
+    inventory: [],
+    image: getCharacterImage(player.character),
+    power: characterPowers[player.character] || "Pouvoir inconnu",
+    playerNumber: players.indexOf(player) + 1,
+    character: player.character
+  }));
+  
+  // Liste d'objets disponibles dans le jeu (exactement comme en mode local)
+  const items = [
+    { 
+      id: 1, 
+      name: "Livre des Ombres", 
+      type: "spell", 
+      power: 20, 
+      description: "Le livre ancestral des sœurs Halliwell",
+      icon: "https://i.imgur.com/Jb0ckJn.jpg"
+    },
+    { 
+      id: 2, 
+      name: "Potion d'Énergie", 
+      type: "potion", 
+      power: 15, 
+      description: "Restaure l'énergie magique",
+      icon: "https://i.imgur.com/eYdYKgb.jpg"
+    },
+    { 
+      id: 3,
+      name: "Potion de Guérison",
+      type: "potion",
+      power: 25,
+      description: "Soigne les blessures",
+      icon: "https://i.imgur.com/HWzRSFR.jpg"
+    },
+    { 
+      id: 4, 
+      name: "Athame", 
+      type: "weapon", 
+      power: 15, 
+      description: "Poignard rituel pour combattre les démons",
+      icon: "https://i.imgur.com/AKUk4iQ.jpg"
+    },
+    { 
+      id: 5, 
+      name: "Cristal de Protection", 
+      type: "defense", 
+      power: 10, 
+      description: "Crée un bouclier protecteur",
+      icon: "https://i.imgur.com/6NlaNHK.jpg"
+    }
+  ];
+  
+  // Liste de démons (exactement comme en mode local)
+  const demons = [
+    {
+      id: 1,
+      name: "Balthazar",
+      power: 30,
+      health: 80,
+      description: "Un puissant démon de niveau supérieur",
+      image: "https://i.imgur.com/S5CnW1V.jpg"
+    },
+    {
+      id: 2,
+      name: "Shax",
+      power: 25,
+      health: 60,
+      description: "L'assassin personnel de la Source",
+      image: "https://i.imgur.com/JCBCsQJ.jpg"
+    },
+    {
+      id: 3,
+      name: "Barbas",
+      power: 20,
+      health: 50,
+      description: "Le démon de la peur",
+      image: "https://i.imgur.com/rlVnWnI.jpg"
+    }
+  ];
+  
   return {
-    board: createBoard(),
-    playerStates: players.map(player => ({
-      id: player.id,
-      name: player.name,
-      color: player.character.toLowerCase(), // Pour la compatibilité avec le code local
-      health: 100,
-      mana: 50,
-      position: 0,
-      inventory: [],
-      image: getCharacterImage(player.character),
-      power: getCharacterPower(player.character),
-      playerNumber: players.indexOf(player) + 1 // Assigner un numéro de joueur comme en local
-    })),
-    items: [
-      { 
-        id: 1, 
-        name: "Livre des Ombres", 
-        type: "spell", 
-        power: 20, 
-        description: "Le livre ancestral des sœurs Halliwell",
-        icon: "https://i.imgur.com/Jb0ckJn.jpg"
-      },
-      { 
-        id: 2, 
-        name: "Potion d'Énergie", 
-        type: "potion", 
-        power: 15, 
-        description: "Restaure l'énergie magique",
-        icon: "https://i.imgur.com/eYdYKgb.jpg"
-      },
-      { 
-        id: 3,
-        name: "Potion de Guérison",
-        type: "potion",
-        power: 25,
-        description: "Soigne les blessures",
-        icon: "https://i.imgur.com/HWzRSFR.jpg"
-      },
-      { 
-        id: 4, 
-        name: "Athame", 
-        type: "weapon", 
-        power: 15, 
-        description: "Poignard rituel pour combattre les démons",
-        icon: "https://i.imgur.com/AKUk4iQ.jpg"
-      },
-      { 
-        id: 5, 
-        name: "Cristal de Protection", 
-        type: "defense", 
-        power: 10, 
-        description: "Crée un bouclier protecteur",
-        icon: "https://i.imgur.com/6NlaNHK.jpg"
-      }
-    ],
-    demons: [
-      {
-        id: 1,
-        name: "Balthazar",
-        power: 30,
-        health: 80,
-        description: "Un puissant démon de niveau supérieur",
-        image: "https://i.imgur.com/S5CnW1V.jpg"
-      },
-      {
-        id: 2,
-        name: "Shax",
-        power: 25,
-        health: 60,
-        description: "L'assassin personnel de la Source",
-        image: "https://i.imgur.com/JCBCsQJ.jpg"
-      },
-      {
-        id: 3,
-        name: "Barbas",
-        power: 20,
-        health: 50,
-        description: "Le démon de la peur",
-        image: "https://i.imgur.com/rlVnWnI.jpg"
-      }
-    ],
+    board: board,
+    playerStates: playerStates,
+    items: items,
+    demons: demons,
     currentPlayerIndex: 0,
     diceValue: 0,
     gameStarted: true,
-    gameOver: false
+    gameOver: false,
+    activeDemon: null
   };
 }
 
@@ -419,14 +662,16 @@ function createBoard() {
 }
 
 // Traiter une action de jeu
-function processGameAction(gameId, playerId, action) {
+function processGameAction(gameId, playerId, action, targetId, itemId) {
   const game = games[gameId];
   const playerIndex = game.players.findIndex(p => p.id === playerId);
   const playerState = game.gameState.playerStates.find(p => p.id === playerId);
   
+  console.log(`Action reçue de ${game.players[playerIndex].name}: ${action.type}`);
+  
   switch(action.type) {
     case 'rollDice':
-      // Simuler un lancer de dé
+      // Simuler un lancer de dé comme en mode local
       const diceValue = Math.floor(Math.random() * 6) + 1;
       game.gameState.diceValue = diceValue;
       
@@ -434,7 +679,8 @@ function processGameAction(gameId, playerId, action) {
       addGameLog(gameId, `${game.players[playerIndex].name} lance le dé et obtient un ${diceValue}.`);
       
       // Mettre à jour la position
-      const newPosition = Math.min(playerState.position + diceValue, 63);
+      const previousPosition = playerState.position;
+      const newPosition = Math.min(previousPosition + diceValue, 63);
       playerState.position = newPosition;
       
       // Vérifier si le joueur a atteint la fin
@@ -444,6 +690,9 @@ function processGameAction(gameId, playerId, action) {
         return;
       }
       
+      // Ajouter un log de déplacement (comme en mode local)
+      addGameLog(gameId, `${game.players[playerIndex].name} avance de la case ${previousPosition} à la case ${newPosition}.`);
+      
       // Vérifier la case d'arrivée
       const cell = game.gameState.board[newPosition];
       handleCellEffect(gameId, playerId, cell);
@@ -451,7 +700,7 @@ function processGameAction(gameId, playerId, action) {
       break;
       
     case 'useSpell':
-      // Logique pour utiliser un sort
+      // Logique pour utiliser un sort (comme en mode local)
       // Vérifier que le joueur a assez de mana
       if (playerState.mana < 15) {
         addGameLog(gameId, `${game.players[playerIndex].name} n'a pas assez de mana.`);
@@ -461,75 +710,182 @@ function processGameAction(gameId, playerId, action) {
       // Utiliser le mana
       playerState.mana -= 15;
       
-      if (action.target === 'demon' && game.gameState.activeDemon) {
-        // Sort contre un démon
-        game.gameState.activeDemon.health -= 20;
-        addGameLog(gameId, `${game.players[playerIndex].name} lance un sort contre ${game.gameState.activeDemon.name} et inflige 20 points de dégâts!`);
-        
-        // Vérifier si le démon est vaincu
-        if (game.gameState.activeDemon.health <= 0) {
-          addGameLog(gameId, `${game.gameState.activeDemon.name} a été vaincu!`);
-          game.gameState.activeDemon = null;
+      // Choisir un sort aléatoire, comme en mode local
+      const spells = [
+        { name: "Téléportation", effect: "se téléporte de 3 cases en avant" },
+        { name: "Bouclier", effect: "récupère 15 points de vie" },
+        { name: "Vision", effect: "peut voir les 5 prochaines cases" }
+      ];
+      
+      const spell = spells[Math.floor(Math.random() * spells.length)];
+      
+      if (spell.name === "Téléportation") {
+        playerState.position += 3;
+        if (playerState.position >= 63) {
+          playerState.position = 63;
+          game.gameState.gameOver = true;
+          addGameLog(gameId, `${game.players[playerIndex].name} a utilisé le sort ${spell.name} et a atteint la fin du plateau!`);
+          return;
         }
-      } else if (action.target === 'heal') {
-        // Sort de soin
-        playerState.health = Math.min(playerState.health + 25, 100);
-        addGameLog(gameId, `${game.players[playerIndex].name} lance un sort de guérison et récupère 25 points de vie!`);
-      } else if (action.target === 'player' && action.targetId) {
-        // Sort contre un autre joueur
-        const targetPlayer = game.gameState.playerStates.find(p => p.id === action.targetId);
-        if (targetPlayer) {
-          targetPlayer.health = Math.max(targetPlayer.health - 15, 1);
-          addGameLog(gameId, `${game.players[playerIndex].name} lance un sort contre ${game.players.find(p => p.id === action.targetId).name} et inflige 15 points de dégâts!`);
-        }
+        // Vérifier la case d'arrivée après téléportation
+        const newCell = game.gameState.board[playerState.position];
+        handleCellEffect(gameId, playerId, newCell);
+      } else if (spell.name === "Bouclier") {
+        playerState.health += 15;
+        if (playerState.health > 100) playerState.health = 100;
       }
+      
+      addGameLog(gameId, `${game.players[playerIndex].name} utilise le sort ${spell.name} et ${spell.effect}.`);
       break;
       
     case 'useItem':
       // Logique pour utiliser un objet
-      if (action.itemId && playerState.inventory) {
-        const itemIndex = playerState.inventory.findIndex(item => item.id === action.itemId);
+      if (!itemId) {
+        addGameLog(gameId, "Aucun objet spécifié.");
+        return;
+      }
+      
+      const inventory = playerState.inventory || [];
+      const itemIndex = inventory.findIndex(item => item.id === itemId);
+      
+      if (itemIndex === -1) {
+        addGameLog(gameId, `${game.players[playerIndex].name} n'a pas cet objet dans son inventaire.`);
+        return;
+      }
+      
+      const item = inventory[itemIndex];
+      
+      // Appliquer l'effet de l'objet
+      if (item.type === 'potion') {
+        if (item.name.includes('Guérison')) {
+          playerState.health += item.power;
+          if (playerState.health > 100) playerState.health = 100;
+          addGameLog(gameId, `${game.players[playerIndex].name} utilise ${item.name} et récupère ${item.power} points de vie.`);
+        } else {
+          playerState.mana += item.power;
+          if (playerState.mana > 100) playerState.mana = 100;
+          addGameLog(gameId, `${game.players[playerIndex].name} utilise ${item.name} et récupère ${item.power} points de mana.`);
+        }
+      } else if (item.type === 'weapon' && game.gameState.activeDemon) {
+        // Augmenter les dégâts contre le démon actif
+        game.gameState.activeDemon.health -= item.power;
+        addGameLog(gameId, `${game.players[playerIndex].name} utilise ${item.name} et inflige ${item.power} points de dégâts au démon.`);
         
-        if (itemIndex !== -1) {
-          const item = playerState.inventory[itemIndex];
+        // Vérifier si le démon a été vaincu
+        if (game.gameState.activeDemon.health <= 0) {
+          addGameLog(gameId, `${game.players[playerIndex].name} a vaincu le démon avec ${item.name}!`);
+          // Donner une récompense
+          playerState.mana += 10;
+          game.gameState.activeDemon = null;
+        }
+      } else if (item.type === 'defense') {
+        // Ajouter un bouclier temporaire
+        playerState.health += item.power;
+        if (playerState.health > 100) playerState.health = 100;
+        addGameLog(gameId, `${game.players[playerIndex].name} utilise ${item.name} et gagne ${item.power} points de vie.`);
+      } else if (item.type === 'spell') {
+        // Lancer un sort puissant
+        if (game.gameState.activeDemon) {
+          game.gameState.activeDemon.health -= item.power * 2;
+          addGameLog(gameId, `${game.players[playerIndex].name} utilise ${item.name} et lance un sort puissant infligeant ${item.power * 2} points de dégâts au démon!`);
           
-          switch(item.type) {
-            case 'potion':
-              if (item.name.includes('Guérison')) {
-                playerState.health = Math.min(playerState.health + item.power, 100);
-                addGameLog(gameId, `${game.players[playerIndex].name} utilise une ${item.name} et récupère ${item.power} points de vie!`);
-              } else {
-                playerState.mana = Math.min(playerState.mana + item.power, 100);
-                addGameLog(gameId, `${game.players[playerIndex].name} utilise une ${item.name} et récupère ${item.power} points de mana!`);
-              }
-              break;
-              
-            case 'weapon':
-              if (game.gameState.activeDemon) {
-                game.gameState.activeDemon.health -= item.power;
-                addGameLog(gameId, `${game.players[playerIndex].name} utilise ${item.name} contre ${game.gameState.activeDemon.name} et inflige ${item.power} points de dégâts!`);
-                
-                if (game.gameState.activeDemon.health <= 0) {
-                  addGameLog(gameId, `${game.gameState.activeDemon.name} a été vaincu!`);
-                  game.gameState.activeDemon = null;
-                }
-              }
-              break;
-              
-            case 'defense':
-              playerState.shield = {
-                power: item.power,
-                duration: 2
-              };
-              addGameLog(gameId, `${game.players[playerIndex].name} utilise ${item.name} et se protège des attaques!`);
-              break;
+          // Vérifier si le démon a été vaincu
+          if (game.gameState.activeDemon.health <= 0) {
+            addGameLog(gameId, `${game.players[playerIndex].name} a vaincu le démon avec le pouvoir de ${item.name}!`);
+            // Donner une récompense
+            playerState.mana += 20;
+            game.gameState.activeDemon = null;
           }
-          
-          // Retirer l'objet de l'inventaire
-          playerState.inventory.splice(itemIndex, 1);
+        } else {
+          // Si pas de démon, ajouter du mana
+          playerState.mana += item.power;
+          if (playerState.mana > 100) playerState.mana = 100;
+          addGameLog(gameId, `${game.players[playerIndex].name} utilise ${item.name} et récupère ${item.power} points de mana.`);
         }
       }
+      
+      // Retirer l'objet de l'inventaire après utilisation
+      inventory.splice(itemIndex, 1);
       break;
+      
+    case 'attack':
+      // Combat contre un démon
+      if (!game.gameState.activeDemon) {
+        addGameLog(gameId, "Aucun démon à combattre.");
+        return;
+      }
+      
+      // Attaque de base
+      const playerDamage = Math.floor(Math.random() * 10) + 5;
+      game.gameState.activeDemon.health -= playerDamage;
+      
+      addGameLog(gameId, `${game.players[playerIndex].name} attaque le démon et inflige ${playerDamage} points de dégâts.`);
+      
+      // Contre-attaque du démon
+      if (game.gameState.activeDemon.health > 0) {
+        const demonDamage = Math.floor(Math.random() * game.gameState.activeDemon.power / 2) + 5;
+        playerState.health -= demonDamage;
+        
+        addGameLog(gameId, `Le démon ${game.gameState.activeDemon.name} contre-attaque et inflige ${demonDamage} points de dégâts à ${game.players[playerIndex].name}.`);
+        
+        // Vérifier si le joueur est vaincu
+        if (playerState.health <= 0) {
+          playerState.health = 10; // Éviter la mort permanente
+          addGameLog(gameId, `${game.players[playerIndex].name} a été vaincu par le démon, mais récupère 10 points de vie.`);
+          
+          // Le combat est terminé (échec)
+          game.gameState.activeDemon = null;
+        }
+      } else {
+        // Le démon est vaincu
+        addGameLog(gameId, `${game.players[playerIndex].name} a vaincu le démon ${game.gameState.activeDemon.name}!`);
+        
+        // Récompense
+        const manaGain = Math.floor(Math.random() * 15) + 10;
+        playerState.mana += manaGain;
+        addGameLog(gameId, `${game.players[playerIndex].name} gagne ${manaGain} points de mana.`);
+        
+        // Chance d'obtenir un objet aléatoire
+        if (Math.random() > 0.5) {
+          const randomItem = Math.floor(Math.random() * game.gameState.items.length);
+          const newItem = game.gameState.items[randomItem];
+          
+          // Ajouter l'objet à l'inventaire
+          if (!playerState.inventory) playerState.inventory = [];
+          playerState.inventory.push(newItem);
+          
+          addGameLog(gameId, `${game.players[playerIndex].name} a trouvé un objet: ${newItem.name}!`);
+        }
+        
+        // Le combat est terminé (succès)
+        game.gameState.activeDemon = null;
+      }
+      break;
+      
+    case 'flee':
+      // Tenter de fuir un combat
+      if (!game.gameState.activeDemon) {
+        addGameLog(gameId, "Aucun démon duquel fuir.");
+        return;
+      }
+      
+      // 50% de chance de réussir
+      if (Math.random() > 0.5) {
+        addGameLog(gameId, `${game.players[playerIndex].name} réussit à s'enfuir du combat!`);
+        game.gameState.activeDemon = null;
+      } else {
+        addGameLog(gameId, `${game.players[playerIndex].name} tente de fuir mais échoue!`);
+        
+        // Le démon attaque
+        const demonDamage = Math.floor(Math.random() * game.gameState.activeDemon.power / 2) + 5;
+        playerState.health -= demonDamage;
+        
+        addGameLog(gameId, `Le démon ${game.gameState.activeDemon.name} attaque ${game.players[playerIndex].name} et inflige ${demonDamage} points de dégâts.`);
+      }
+      break;
+      
+    default:
+      console.log(`Action non reconnue: ${action.type}`);
   }
 }
 
@@ -537,83 +893,79 @@ function processGameAction(gameId, playerId, action) {
 function handleCellEffect(gameId, playerId, cell) {
   const game = games[gameId];
   const playerIndex = game.players.findIndex(p => p.id === playerId);
-  const playerState = game.gameState.playerStates.find(p => p.id === playerId);
+  const player = game.gameState.playerStates.find(p => p.id === playerId);
+  const playerName = game.players[playerIndex].name;
   
-  addGameLog(gameId, `${game.players[playerIndex].name} arrive sur une case ${cell.type}.`);
+  if (!cell) {
+    console.error("Case indéfinie");
+    return;
+  }
   
+  console.log(`Traitement de l'effet de la case type=${cell.type} pour le joueur ${playerName}`);
+  
+  // Appliquer l'effet en fonction du type de case
   switch(cell.type) {
     case 'special':
-      // Bonus aléatoire
-      playerState.mana += 10;
-      addGameLog(gameId, `✨ ${game.players[playerIndex].name} gagne 10 points de mana bonus!`);
+      // Case magique: plus de mana
+      addGameLog(gameId, `${playerName} a trouvé une source de pouvoir magique!`);
+      player.mana += 20;
+      if (player.mana > 100) player.mana = 100;
       break;
       
     case 'demon':
-      // Combat contre un démon
-      if (cell.content && cell.content.demonId) {
-        const demonId = cell.content.demonId;
-        const demonTemplate = game.gameState.demons.find(d => d.id === demonId);
-        
-        if (demonTemplate) {
-          // Créer une copie du démon pour ce combat
-          game.gameState.activeDemon = JSON.parse(JSON.stringify(demonTemplate));
-          
-          // Le démon attaque automatiquement
-          const damage = Math.max(5, game.gameState.activeDemon.power - (playerState.shield ? playerState.shield.power : 0));
-          playerState.health -= damage;
-          
-          addGameLog(gameId, `⚔️ ${game.players[playerIndex].name} rencontre ${demonTemplate.name}!`);
-          addGameLog(gameId, `👹 ${demonTemplate.name} attaque et inflige ${damage} points de dégâts!`);
-          
-          if (playerState.health <= 0) {
-            playerState.health = 1;
-            addGameLog(gameId, `😱 ${game.players[playerIndex].name} est gravement blessé mais survit de justesse!`);
-          }
-        }
-      }
+      // Case démon: démarrer un combat
+      addGameLog(gameId, `${playerName} rencontre un démon!`);
+      
+      // Sélectionner un démon aléatoire
+      const demonIndex = Math.floor(Math.random() * game.gameState.demons.length);
+      const demon = game.gameState.demons[demonIndex];
+      
+      // Créer une instance du démon pour le combat
+      game.gameState.activeDemon = {
+        id: demon.id,
+        name: demon.name,
+        power: demon.power,
+        health: demon.health,
+        description: demon.description,
+        image: demon.image
+      };
+      
+      addGameLog(gameId, `Un ${demon.name} apparaît! (Santé: ${demon.health}, Pouvoir: ${demon.power})`);
       break;
       
     case 'trap':
-      // Piège
-      playerState.health -= 10;
-      addGameLog(gameId, `🔥 ${game.players[playerIndex].name} est pris dans un piège et perd 10 points de vie!`);
+      // Case piège: perdre de la vie
+      const damage = Math.floor(Math.random() * 10) + 5;
+      player.health -= damage;
       
-      if (playerState.health <= 0) {
-        playerState.health = 1;
-        addGameLog(gameId, `😱 ${game.players[playerIndex].name} est gravement blessé mais survit de justesse!`);
+      addGameLog(gameId, `${playerName} est tombé dans un piège et perd ${damage} points de vie!`);
+      
+      // Empêcher la mort
+      if (player.health <= 0) {
+        player.health = 10;
+        addGameLog(gameId, `${playerName} était au bord de la mort mais a récupéré 10 points de vie.`);
       }
       break;
       
     case 'item':
-      // Objet à ramasser
+      // Case objet: trouver un objet
       if (cell.content && cell.content.itemId) {
         const itemId = cell.content.itemId;
         const item = game.gameState.items.find(i => i.id === itemId);
         
         if (item) {
-          // Créer une copie de l'objet pour l'inventaire
-          const newItem = JSON.parse(JSON.stringify(item));
-          newItem.id = Date.now(); // ID unique
+          addGameLog(gameId, `${playerName} a trouvé : ${item.name}!`);
           
-          // Ajouter à l'inventaire
-          if (!playerState.inventory) {
-            playerState.inventory = [];
-          }
-          playerState.inventory.push(newItem);
+          // Ajouter l'objet à l'inventaire
+          if (!player.inventory) player.inventory = [];
+          player.inventory.push(item);
           
-          addGameLog(gameId, `🎁 ${game.players[playerIndex].name} trouve ${item.name}!`);
+          // L'objet est ramassé, marquer la case comme normale
+          cell.type = 'normal';
+          cell.content = null;
         }
       }
       break;
-  }
-  
-  // Gérer les effets actifs
-  if (playerState.shield) {
-    playerState.shield.duration--;
-    if (playerState.shield.duration <= 0) {
-      playerState.shield = null;
-      addGameLog(gameId, `🛡️ Le bouclier de ${game.players[playerIndex].name} disparaît.`);
-    }
   }
 }
 
@@ -637,6 +989,83 @@ function addGameLog(gameId, message) {
   
   // Envoyer le message à tous les joueurs de la partie
   io.to(gameId).emit('gameLog', logEntry);
+}
+
+// Envoyer une mise à jour de l'état du jeu à tous les joueurs de la partie
+function gameStateUpdated(gameId, additionalInfo = {}) {
+  const game = games[gameId];
+  if (!game) return;
+  
+  // S'assurer que nous envoyons toutes les informations nécessaires
+  const gameState = {
+    ...game.gameState,
+    ...additionalInfo
+  };
+  
+  // Ajouter des champs supplémentaires si nécessaire pour la compatibilité avec le mode local
+  if (!gameState.currentPlayer && gameState.playerStates && gameState.currentPlayerIndex >= 0) {
+    gameState.currentPlayer = gameState.playerStates[gameState.currentPlayerIndex];
+  }
+  
+  // Envoyer l'état complet à tous les joueurs connectés
+  if (game.players) {
+    game.players.forEach(player => {
+      const socket = getSocketById(player.id);
+      if (socket) {
+        console.log(`Envoi de l'état du jeu à ${player.name} (${player.id})`);
+        socket.emit('gameStateUpdate', gameState);
+      }
+    });
+  }
+}
+
+// Passer au joueur suivant
+function nextTurn(gameId) {
+  const game = games[gameId];
+  if (!game || !game.gameState) return;
+  
+  // Si la partie est terminée, ne pas passer au joueur suivant
+  if (game.gameState.gameOver) return;
+  
+  // Incrémenter l'index du joueur
+  game.gameState.currentPlayerIndex = (game.gameState.currentPlayerIndex + 1) % game.gameState.playerStates.length;
+  
+  // S'assurer que le joueur suivant a de la vie
+  let attempt = 0;
+  while (game.gameState.playerStates[game.gameState.currentPlayerIndex].health <= 0 && attempt < game.gameState.playerStates.length) {
+    game.gameState.currentPlayerIndex = (game.gameState.currentPlayerIndex + 1) % game.gameState.playerStates.length;
+    attempt++;
+  }
+  
+  // Si tous les joueurs sont morts, c'est la fin de la partie
+  if (attempt >= game.gameState.playerStates.length) {
+    game.gameState.gameOver = true;
+    addGameLog(gameId, "Tous les joueurs ont été vaincus! Partie terminée.");
+    return;
+  }
+  
+  // Annoncer le nouveau tour
+  const currentPlayer = game.gameState.playerStates[game.gameState.currentPlayerIndex];
+  addGameLog(gameId, `C'est au tour de ${currentPlayer.name}`);
+  
+  // Mettre à jour l'état
+  gameStateUpdated(gameId);
+}
+
+// Récupérer un socket par son ID
+function getSocketById(socketId) {
+  return connectedSockets[socketId];
+}
+
+// Envoyer une mise à jour du statut de la partie à tous les joueurs
+function emitGameUpdate(gameId) {
+  const game = games[gameId];
+  if (!game) return;
+  
+  io.to(gameId).emit('gameUpdate', {
+    players: game.players,
+    ready: game.ready
+  });
 }
 
 // Port d'écoute
