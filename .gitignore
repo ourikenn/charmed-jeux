@@ -1,0 +1,28 @@
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Environnements de développement
+.vscode/
+.idea/
+*.sublime-*
+
+# Dépendances et modules
+node_modules/
+bower_components/
+
+# Fichiers de build
+dist/
+build/
+out/
+
+# Fichiers de logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Fichiers temporaires
+*.tmp
+*.swp
+*.swo 

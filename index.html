@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charmed - Le Jeu</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="custom.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&display=swap');
+        
+        /* Styles supplémentaires pour corriger les images */
+        .character:hover, 
+        .character.selected {
+            transform: none !important;
+        }
+        .character img {
+            transform: none !important;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            background-image: url('https://i.ytimg.com/vi/Zrhnzscb0k8/maxresdefault.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            font-family: 'Cinzel', serif;
+            color: #fff;
+            height: 100vh;
+        }
+        
+        .background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .triquetra {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            max-width: 600px;
+            opacity: 0.7;
+            animation: pulse 4s infinite alternate, rotate 120s infinite linear;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.4; filter: drop-shadow(0 0 5px rgba(220, 20, 60, 0.3)); }
+            100% { opacity: 0.7; filter: drop-shadow(0 0 25px rgba(220, 20, 60, 0.7)); }
+        }
+        
+        @keyframes rotate {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background-color: #fff;
+            border-radius: 50%;
+            animation: twinkle 3s infinite alternate;
+        }
+        
+        @keyframes twinkle {
+            0% { opacity: 0.2; }
+            100% { opacity: 0.8; }
+        }
+        
+        .title-container {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 10;
+            animation: fadeIn 2s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+        .title {
+            font-size: 5rem;
+            font-weight: 800;
+            margin: 0;
+            background: linear-gradient(to bottom, #ffffff, #a10000);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+            letter-spacing: 10px;
+        }
+        
+        .menu-container {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 500px;
+            z-index: 10;
+        }
+        
+        .menu {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .menu-item {
+            margin: 15px 0;
+            text-align: center;
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.5s forwards;
+        }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .menu-item:nth-child(1) { animation-delay: 1s; }
+        .menu-item:nth-child(2) { animation-delay: 1.2s; }
+        .menu-item:nth-child(3) { animation-delay: 1.4s; }
+        .menu-item:nth-child(4) { animation-delay: 1.6s; }
+        .menu-item:nth-child(5) { animation-delay: 1.8s; }
+        
+        .menu-button {
+            display: inline-block;
+            padding: 15px 30px;
+            min-width: 250px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.4rem;
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 2px solid rgba(220, 20, 60, 0.7);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px rgba(220, 20, 60, 0.7);
+            box-shadow: 0 0 15px rgba(220, 20, 60, 0.3);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            text-decoration: none;
+        }
+        
+        .menu-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(220, 20, 60, 0.2), transparent);
+            transition: all 0.5s ease;
+            z-index: -1;
+        }
+        
+        .menu-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 25px rgba(220, 20, 60, 0.7);
+            text-shadow: 0 0 10px rgba(220, 20, 60, 1);
+            border-color: rgba(220, 20, 60, 1);
+        }
+        
+        .menu-button:hover::before {
+            left: 100%;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 100;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 600px;
+            background-color: rgba(20, 20, 20, 0.9);
+            border: 2px solid rgba(220, 20, 60, 0.7);
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(220, 20, 60, 0.5);
+        }
+        
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 1.5rem;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .close-modal:hover {
+            color: crimson;
+            transform: scale(1.2);
+        }
+        
+        .character-selection {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .character {
+            width: 120px;
+            margin: 10px;
+            padding: 10px;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .character:hover,
+        .character.selected {
+            border-color: crimson;
+            box-shadow: 0 0 15px rgba(220, 20, 60, 0.7);
+        }
+        
+        .character img {
+            width: 100%;
+            border-radius: 5px;
+        }
+        
+        .character-name {
+            margin-top: 5px;
+            font-size: 1rem;
+        }
+        
+        .character-power {
+            font-size: 0.8rem;
+            color: #d2b4de;
+            font-style: italic;
+            margin-top: 3px;
+        }
+        
+        .player-count {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .player-count button {
+            margin: 0 10px;
+            padding: 8px 15px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(220, 20, 60, 0.7);
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .player-count button.selected {
+            background-color: rgba(220, 20, 60, 0.7);
+            transform: scale(1.1);
+        }
+        
+        .modal-buttons {
+            margin-top: 30px;
+        }
+        
+        .modal-button {
+            padding: 10px 25px;
+            margin: 0 10px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.1rem;
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 2px solid rgba(220, 20, 60, 0.7);
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-button:hover {
+            background-color: rgba(220, 20, 60, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 0 15px rgba(220, 20, 60, 0.5);
+        }
+        
+        .transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+        
+        .transition-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .transition-logo {
+            width: 0;
+            height: 0;
+            opacity: 0;
+            transform: rotate(0deg);
+            transition: all 1.5s ease-in-out;
+        }
+        
+        .transition-overlay.active .transition-logo {
+            width: 80%;
+            max-width: 800px;
+            height: auto;
+            opacity: 1;
+            transform: rotate(360deg);
+        }
+        
+        .fade-out {
+            animation: fadeOut 1s forwards;
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="background">
+        <img src="https://i.ytimg.com/vi/Zrhnzscb0k8/maxresdefault.jpg" alt="Triquetra" class="triquetra">
+        <div class="stars" id="stars"></div>
+    </div>
+    
+    <div class="transition-overlay" id="transition-overlay">
+        <img src="https://i.ytimg.com/vi/Zrhnzscb0k8/maxresdefault.jpg" alt="Charmed Logo" class="transition-logo">
+    </div>
+    
+    <div class="title-container">
+        <h1 class="title">CHARMED</h1>
+    </div>
+    
+    <div class="menu-container">
+        <ul class="menu">
+            <li class="menu-item">
+                <a href="#" class="menu-button" id="new-game">NOUVELLE PARTIE</a>
+            </li>
+            <li class="menu-item">
+                <a href="#" class="menu-button" id="load-game">REPRENDRE PARTIE</a>
+            </li>
+            <li class="menu-item">
+                <a href="#" class="menu-button" id="character-select">CHOIX DES PERSONNAGES</a>
+            </li>
+            <li class="menu-item">
+                <a href="#" class="menu-button" id="player-count">NOMBRE DE JOUEURS</a>
+            </li>
+            <li class="menu-item">
+                <a href="#" class="menu-button" id="quit-game">QUITTER</a>
+            </li>
+        </ul>
+    </div>
+    
+    <!-- Modal pour le choix des personnages -->
+    <div id="character-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-character-modal">&times;</span>
+            <h2>Choix des Personnages</h2>
+            <div class="character-selection">
+                <div class="character" data-character="piper">
+                    <img src="https://th.bing.com/th/id/R.e418e2e82e7d024893b72962bfa1fb03?rik=0qM8%2fp3Dzkr63A&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPiper-Halliwell-charmed-25593462-1912-2560.jpg&ehk=rxkknJzYQe06CdLUufNRS94f9bGVAWedZ7yJeX3j2Us%3d&risl=&pid=ImgRaw&r=0" alt="Piper" class="character-image">
+                    <div class="character-name">Piper</div>
+                    <div class="character-power">Immobilisation moléculaire</div>
+                </div>
+                <div class="character" data-character="phoebe">
+                    <img src="https://usercontent2.hubstatic.com/14340833_f520.jpg" alt="Phoebe" class="character-image">
+                    <div class="character-name">Phoebe</div>
+                    <div class="character-power">Prémonition</div>
+                </div>
+                <div class="character" data-character="prue">
+                    <img src="https://th.bing.com/th/id/R.9898bd81a60bd0fb240e5c8a3ed8ec85?rik=QHMl3HpnNXX5Kg&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPrue-Halliwell-charmed-25593840-2141-2560.jpg&ehk=5FdgnbZowUevZ4QwBVZXNyZF7eSUZwcZb1MbS9MvcOg%3d&risl=&pid=ImgRaw&r=0" alt="Prue" class="character-image">
+                    <div class="character-name">Prue</div>
+                    <div class="character-power">Télékinésie</div>
+                </div>
+                <div class="character" data-character="paige">
+                    <img src="https://images.saymedia-content.com/.image/ar_3:2%2Cc_limit%2Ccs_srgb%2Cfl_progressive%2Cq_auto:eco%2Cw_1400/MTc1MTE0NzE2OTA0MjM2MTI3/the-hairvolution-of-paige-halliwell-from-charmed.jpg" alt="Paige" class="character-image">
+                    <div class="character-name">Paige</div>
+                    <div class="character-power">Téléportation d'objets</div>
+                </div>
+                <div class="character" data-character="leo">
+                    <img src="https://vignette.wikia.nocookie.net/charmed/images/c/c3/7x17-Leo.jpg/revision/latest?cb=20110125004234" alt="Leo" class="character-image">
+                    <div class="character-name">Leo</div>
+                    <div class="character-power">Être de Lumière</div>
+                </div>
+                <div class="character" data-character="cole">
+                    <img src="https://th.bing.com/th/id/R.c8f0eba9a7ba1a10dd8d500b556f3b38?rik=7kuy7xFys9fDcg&riu=http%3a%2f%2fimg2.wikia.nocookie.net%2f__cb20110925135650%2fcharmed%2fimages%2f7%2f72%2fSeason-4-cole-05.jpg&ehk=6EIaa%2bvcITIVyCyaDptIuIOvBHDYY8KoihtCUv5nk0U%3d&risl=&pid=ImgRaw&r=0" alt="Cole" class="character-image">
+                    <div class="character-name">Cole</div>
+                    <div class="character-power">Balthazar</div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-button" id="confirm-character">Confirmer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal pour le nombre de joueurs -->
+    <div id="player-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-player-modal">&times;</span>
+            <h2>Nombre de Joueurs</h2>
+            <div class="player-count">
+                <button data-count="1">1</button>
+                <button data-count="2">2</button>
+                <button data-count="3">3</button>
+                <button data-count="4">4</button>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-button" id="confirm-player-count">Confirmer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal pour charger une partie -->
+    <div id="load-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-load-modal">&times;</span>
+            <h2>Reprendre une Partie</h2>
+            <div id="saved-games">
+                <p>Aucune partie sauvegardée trouvée</p>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-button" id="confirm-load">Charger</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Ajouter l'élément audio juste avant la fermeture du body -->
+    <audio id="background-music" preload="auto" loop>
+        <source src="sounds/Charmed.mp3" type="audio/mpeg">
+        Votre navigateur ne supporte pas l'élément audio.
+    </audio>
+    
+    <!-- Ajouter un bouton pour contrôler la musique -->
+    <div class="music-control">
+        <button id="music-toggle" class="music-button">
+            <i class="fas fa-volume-up"></i>
+        </button>
+    </div>
+    
+    <script>
+        // Création des étoiles
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            const starCount = 100;
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.animationDelay = `${Math.random() * 3}s`;
+                starsContainer.appendChild(star);
+            }
+        }
+        
+        // Gestionnaires de modales
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // Fonction pour gérer la musique
+        function setupMusic() {
+            const musicPlayer = document.getElementById('background-music');
+            const musicToggle = document.getElementById('music-toggle');
+            let isMusicPlaying = true; // Par défaut, la musique est active
+            
+            // Vérifier si le fichier audio est correctement chargé
+            musicPlayer.addEventListener('loadeddata', function() {
+                console.log('Audio chargé avec succès:', musicPlayer.duration, 'secondes');
+                // Une fois l'audio chargé, on essaie de le lire
+                autoPlayAudio();
+            });
+            
+            // Tentative de lecture automatique avec contournement des restrictions du navigateur
+            function autoPlayAudio() {
+                console.log('Tentative de lecture automatique...');
+                
+                // Régler le volume à un niveau audible
+                musicPlayer.volume = 1.0;
+                
+                // Essayer de lancer la lecture
+                const playPromise = musicPlayer.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise
+                        .then(() => {
+                            console.log('Lecture automatique réussie');
+                            isMusicPlaying = true;
+                            updateMusicIcon();
+                        })
+                        .catch((error) => {
+                            console.error('Erreur de lecture automatique:', error);
+                            console.log('Attente d\'interaction utilisateur...');
+                            isMusicPlaying = false;
+                            updateMusicIcon();
+                            
+                            // Ajouter un écouteur d'événement pour lancer l'audio au premier clic
+                            document.addEventListener('click', function playOnFirstClick() {
+                                if (!musicPlayer.playing) {
+                                    console.log('Premier clic détecté, nouvelle tentative de lecture');
+                                    musicPlayer.play()
+                                        .then(() => {
+                                            console.log('Lecture démarrée après interaction');
+                                            isMusicPlaying = true;
+                                            updateMusicIcon();
+                                        })
+                                        .catch(err => console.error('Échec de lecture après interaction:', err));
+                                }
+                                document.removeEventListener('click', playOnFirstClick);
+                            }, { once: true });
+                        });
+                }
+            }
+            
+            // Fonction pour mettre à jour l'icône du bouton
+            function updateMusicIcon() {
+                musicToggle.innerHTML = isMusicPlaying ? 
+                    '<i class="fas fa-volume-up"></i>' : 
+                    '<i class="fas fa-volume-mute"></i>';
+                
+                if (isMusicPlaying) {
+                    musicToggle.classList.add('active');
+                } else {
+                    musicToggle.classList.remove('active');
+                }
+            }
+            
+            // Gestionnaire d'événement pour le bouton
+            musicToggle.addEventListener('click', function() {
+                console.log('Bouton audio cliqué, état actuel:', isMusicPlaying);
+                
+                if (isMusicPlaying) {
+                    musicPlayer.pause();
+                    isMusicPlaying = false;
+                    console.log('Audio mis en pause');
+                } else {
+                    musicPlayer.play()
+                        .then(() => console.log('Audio relancé'))
+                        .catch(err => console.error('Erreur lors de la relance de l\'audio:', err));
+                    isMusicPlaying = true;
+                }
+                
+                updateMusicIcon();
+            });
+            
+            // Détecter les erreurs de lecture
+            musicPlayer.addEventListener('error', function(e) {
+                console.error('Erreur audio:', e);
+                alert('Erreur lors du chargement de l\'audio. Vérifiez que le fichier existe et est accessible.');
+            });
+            
+            // S'assurer que l'icône reflète l'état initial
+            updateMusicIcon();
+            
+            // Tentative initiale de lecture
+            if (musicPlayer.readyState >= 2) { // HAVE_CURRENT_DATA ou supérieur
+                autoPlayAudio();
+            }
+        }
+        
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            createStars();
+            setupMusic();
+            
+            // Gestionnaires d'événements pour le menu principal
+            document.getElementById('new-game').addEventListener('click', function() {
+                // Vérifier si le nombre de joueurs et les personnages ont été choisis
+                const playerCount = localStorage.getItem('playerCount');
+                const selectedPlayers = JSON.parse(localStorage.getItem('selectedPlayers') || '[]');
+                
+                if (!playerCount) {
+                    alert('Veuillez sélectionner le nombre de joueurs avant de commencer une partie');
+                    openModal('player-modal');
+                    return;
+                }
+                
+                if (selectedPlayers.length < parseInt(playerCount)) {
+                    alert('Veuillez sélectionner les personnages pour chaque joueur');
+                    openPlayerSelectionModal();
+                    return;
+                }
+                
+                // Activer la transition avant de rediriger
+                const transitionOverlay = document.getElementById('transition-overlay');
+                transitionOverlay.classList.add('active');
+                
+                // Rediriger vers le jeu après l'animation
+                setTimeout(function() {
+                    window.location.href = 'game.html?mode=new';
+                }, 2500);
+            });
+            
+            document.getElementById('load-game').addEventListener('click', function() {
+                openModal('load-modal');
+            });
+            
+            document.getElementById('character-select').addEventListener('click', function() {
+                openModal('character-modal');
+            });
+            
+            document.getElementById('player-count').addEventListener('click', function() {
+                openModal('player-modal');
+            });
+            
+            document.getElementById('quit-game').addEventListener('click', function() {
+                if (confirm('Êtes-vous sûr de vouloir quitter le jeu?')) {
+                    window.close();
+                }
+            });
+            
+            // Gestionnaires pour les modales
+            document.getElementById('close-character-modal').addEventListener('click', function() {
+                closeModal('character-modal');
+            });
+            
+            document.getElementById('close-player-modal').addEventListener('click', function() {
+                closeModal('player-modal');
+            });
+            
+            document.getElementById('close-load-modal').addEventListener('click', function() {
+                closeModal('load-modal');
+            });
+            
+            // Sélection des personnages
+            const characters = document.querySelectorAll('.character');
+            characters.forEach(character => {
+                character.addEventListener('click', function() {
+                    characters.forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    // Afficher un message indiquant le personnage sélectionné
+                    const characterName = this.querySelector('.character-name').textContent;
+                    const messageContainer = document.getElementById('character-message') || document.createElement('div');
+                    messageContainer.id = 'character-message';
+                    messageContainer.className = 'selection-message';
+                    messageContainer.textContent = `${characterName} sélectionné(e)`;
+                    
+                    const modalContent = document.querySelector('#character-modal .modal-content');
+                    if (!document.getElementById('character-message')) {
+                        modalContent.insertBefore(messageContainer, document.querySelector('#character-modal .modal-buttons'));
+                    }
+                });
+            });
+            
+            // Sélection du nombre de joueurs
+            const playerButtons = document.querySelectorAll('.player-count button');
+            playerButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    playerButtons.forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            
+            // Confirmation des choix
+            document.getElementById('confirm-character').addEventListener('click', function() {
+                const selectedCharacter = document.querySelector('.character.selected');
+                if (selectedCharacter) {
+                    const characterId = selectedCharacter.dataset.character;
+                    localStorage.setItem('selectedCharacter', characterId);
+                    const characterName = selectedCharacter.querySelector('.character-name').textContent;
+                    alert(`Vous avez choisi de jouer avec ${characterName}`);
+                    closeModal('character-modal');
+                } else {
+                    alert('Veuillez sélectionner un personnage');
+                }
+            });
+            
+            document.getElementById('confirm-player-count').addEventListener('click', function() {
+                const selectedCount = document.querySelector('.player-count button.selected');
+                if (selectedCount) {
+                    const count = selectedCount.dataset.count;
+                    localStorage.setItem('playerCount', count);
+                    localStorage.removeItem('selectedPlayers'); // Réinitialiser les sélections précédentes
+                    alert(`Nombre de joueurs: ${count}`);
+                    closeModal('player-modal');
+                    
+                    // Ouvrir l'écran de sélection des personnages
+                    openPlayerSelectionModal();
+                } else {
+                    alert('Veuillez sélectionner un nombre de joueurs');
+                }
+            });
+            
+            document.getElementById('confirm-load').addEventListener('click', function() {
+                // Logique pour charger une partie sauvegardée
+                alert('Fonctionnalité à implémenter');
+                closeModal('load-modal');
+            });
+        });
+        
+        // Fonction pour ouvrir la sélection de personnages pour chaque joueur
+        function openPlayerSelectionModal() {
+            // Vérifier si la modale existe déjà
+            let playerSelectionModal = document.getElementById('player-selection-modal');
+            
+            // Si elle n'existe pas, la créer
+            if (!playerSelectionModal) {
+                playerSelectionModal = document.createElement('div');
+                playerSelectionModal.id = 'player-selection-modal';
+                playerSelectionModal.className = 'modal';
+                document.body.appendChild(playerSelectionModal);
+            }
+            
+            const playerCount = parseInt(localStorage.getItem('playerCount') || '1');
+            const selectedPlayers = JSON.parse(localStorage.getItem('selectedPlayers') || '[]');
+            const currentPlayer = selectedPlayers.length + 1;
+            
+            // Arrêter si tous les joueurs ont déjà choisi
+            if (currentPlayer > playerCount) {
+                return;
+            }
+            
+            // Tous les personnages disponibles
+            const allCharacters = [
+                {id: 'piper', name: 'Piper', power: 'Immobilisation moléculaire', image: 'https://th.bing.com/th/id/R.e418e2e82e7d024893b72962bfa1fb03?rik=0qM8%2fp3Dzkr63A&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPiper-Halliwell-charmed-25593462-1912-2560.jpg&ehk=rxkknJzYQe06CdLUufNRS94f9bGVAWedZ7yJeX3j2Us%3d&risl=&pid=ImgRaw&r=0'},
+                {id: 'phoebe', name: 'Phoebe', power: 'Prémonition', image: 'https://usercontent2.hubstatic.com/14340833_f520.jpg'},
+                {id: 'prue', name: 'Prue', power: 'Télékinésie', image: 'https://th.bing.com/th/id/R.9898bd81a60bd0fb240e5c8a3ed8ec85?rik=QHMl3HpnNXX5Kg&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPrue-Halliwell-charmed-25593840-2141-2560.jpg&ehk=5FdgnbZowUevZ4QwBVZXNyZF7eSUZwcZb1MbS9MvcOg%3d&risl=&pid=ImgRaw&r=0'},
+                {id: 'paige', name: 'Paige', power: 'Téléportation d\'objets', image: 'https://images.saymedia-content.com/.image/ar_3:2%2Cc_limit%2Ccs_srgb%2Cfl_progressive%2Cq_auto:eco%2Cw_1400/MTc1MTE0NzE2OTA0MjM2MTI3/the-hairvolution-of-paige-halliwell-from-charmed.jpg'},
+                {id: 'leo', name: 'Leo', power: 'Être de Lumière', image: 'https://vignette.wikia.nocookie.net/charmed/images/c/c3/7x17-Leo.jpg/revision/latest?cb=20110125004234'},
+                {id: 'cole', name: 'Cole', power: 'Balthazar', image: 'https://th.bing.com/th/id/R.c8f0eba9a7ba1a10dd8d500b556f3b38?rik=7kuy7xFys9fDcg&riu=http%3a%2f%2fimg2.wikia.nocookie.net%2f__cb20110925135650%2fcharmed%2fimages%2f7%2f72%2fSeason-4-cole-05.jpg&ehk=6EIaa%2bvcITIVyCyaDptIuIOvBHDYY8KoihtCUv5nk0U%3d&risl=&pid=ImgRaw&r=0'}
+            ];
+            
+            // Créer le contenu de la modale avec les personnages déjà sélectionnés
+            let modalHTML = `
+                <div class="modal-content">
+                    <span class="close-modal" id="close-player-selection">&times;</span>
+                    <h2>Joueur ${currentPlayer}, choisissez votre personnage</h2>`;
+            
+            // Ajouter la section des personnages déjà choisis
+            if (selectedPlayers.length > 0) {
+                modalHTML += `
+                    <div class="selected-players-summary">
+                        <p>Personnages déjà choisis :</p>
+                        <div class="selected-players-list">`;
+                
+                selectedPlayers.forEach((player, index) => {
+                    const char = allCharacters.find(c => c.id === player.id);
+                    if (char) {
+                        modalHTML += `
+                            <div class="selected-player-item">
+                                <div class="player-info-tag">Joueur ${index + 1}</div>
+                                <img src="${char.image}" alt="${player.name}">
+                                <div class="name">${player.name}</div>
+                            </div>`;
+                    }
+                });
+                
+                modalHTML += `
+                        </div>
+                    </div>`;
+            }
+            
+            // Ajouter la section de sélection de personnage
+            modalHTML += `
+                    <div class="character-selection" id="player-character-selection">
+                        ${getAvailableCharactersHTML(selectedPlayers)}
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="modal-button" id="confirm-player-selection">Confirmer</button>
+                    </div>
+                </div>`;
+            
+            playerSelectionModal.innerHTML = modalHTML;
+            
+            // Afficher la modale
+            playerSelectionModal.style.display = 'block';
+            
+            // Gérer les événements
+            document.getElementById('close-player-selection').addEventListener('click', function() {
+                playerSelectionModal.style.display = 'none';
+            });
+            
+            // Gestion de la sélection de personnages
+            const characters = document.querySelectorAll('#player-character-selection .character');
+            characters.forEach(character => {
+                character.addEventListener('click', function() {
+                    characters.forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            
+            // Confirmation de la sélection
+            document.getElementById('confirm-player-selection').addEventListener('click', function() {
+                const selectedCharacter = document.querySelector('#player-character-selection .character.selected');
+                if (selectedCharacter) {
+                    // Ajouter le personnage à la liste
+                    const character = {
+                        id: selectedCharacter.dataset.character,
+                        name: selectedCharacter.querySelector('.character-name').textContent
+                    };
+                    
+                    selectedPlayers.push(character);
+                    localStorage.setItem('selectedPlayers', JSON.stringify(selectedPlayers));
+                    
+                    // Fermer la modale actuelle
+                    playerSelectionModal.style.display = 'none';
+                    
+                    // Si tous les joueurs n'ont pas encore choisi, ouvrir pour le joueur suivant
+                    if (selectedPlayers.length < playerCount) {
+                        openPlayerSelectionModal();
+                    } else {
+                        alert(`Tous les joueurs ont choisi leur personnage ! Vous pouvez maintenant commencer la partie.`);
+                    }
+                } else {
+                    alert('Veuillez sélectionner un personnage');
+                }
+            });
+        }
+
+        // Fonction pour obtenir les HTML des personnages disponibles
+        function getAvailableCharactersHTML(selectedPlayers) {
+            // Obtenir les identifiants des personnages déjà sélectionnés
+            const selectedIds = selectedPlayers.map(p => p.id);
+            
+            // Tous les personnages disponibles
+            const allCharacters = [
+                {id: 'piper', name: 'Piper', power: 'Immobilisation moléculaire', image: 'https://th.bing.com/th/id/R.e418e2e82e7d024893b72962bfa1fb03?rik=0qM8%2fp3Dzkr63A&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPiper-Halliwell-charmed-25593462-1912-2560.jpg&ehk=rxkknJzYQe06CdLUufNRS94f9bGVAWedZ7yJeX3j2Us%3d&risl=&pid=ImgRaw&r=0'},
+                {id: 'phoebe', name: 'Phoebe', power: 'Prémonition', image: 'https://usercontent2.hubstatic.com/14340833_f520.jpg'},
+                {id: 'prue', name: 'Prue', power: 'Télékinésie', image: 'https://th.bing.com/th/id/R.9898bd81a60bd0fb240e5c8a3ed8ec85?rik=QHMl3HpnNXX5Kg&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPrue-Halliwell-charmed-25593840-2141-2560.jpg&ehk=5FdgnbZowUevZ4QwBVZXNyZF7eSUZwcZb1MbS9MvcOg%3d&risl=&pid=ImgRaw&r=0'},
+                {id: 'paige', name: 'Paige', power: 'Téléportation d\'objets', image: 'https://images.saymedia-content.com/.image/ar_3:2%2Cc_limit%2Ccs_srgb%2Cfl_progressive%2Cq_auto:eco%2Cw_1400/MTc1MTE0NzE2OTA0MjM2MTI3/the-hairvolution-of-paige-halliwell-from-charmed.jpg'},
+                {id: 'leo', name: 'Leo', power: 'Être de Lumière', image: 'https://vignette.wikia.nocookie.net/charmed/images/c/c3/7x17-Leo.jpg/revision/latest?cb=20110125004234'},
+                {id: 'cole', name: 'Cole', power: 'Balthazar', image: 'https://th.bing.com/th/id/R.c8f0eba9a7ba1a10dd8d500b556f3b38?rik=7kuy7xFys9fDcg&riu=http%3a%2f%2fimg2.wikia.nocookie.net%2f__cb20110925135650%2fcharmed%2fimages%2f7%2f72%2fSeason-4-cole-05.jpg&ehk=6EIaa%2bvcITIVyCyaDptIuIOvBHDYY8KoihtCUv5nk0U%3d&risl=&pid=ImgRaw&r=0'}
+            ];
+            
+            // Filtrer les personnages déjà choisis
+            const availableCharacters = allCharacters.filter(char => !selectedIds.includes(char.id));
+            
+            // Créer le HTML
+            return availableCharacters.map(char => `
+                <div class="character" data-character="${char.id}">
+                    <img src="${char.image}" alt="${char.name}" class="character-image">
+                    <div class="character-name">${char.name}</div>
+                    <div class="character-power">${char.power}</div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html> 

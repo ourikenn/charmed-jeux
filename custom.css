@@ -1,0 +1,59 @@
+/* Styles pour fixer la taille des images de personnages */
+.character {
+    width: 120px;
+    height: auto;
+    margin: 10px;
+    padding: 10px;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+.character:hover,
+.character.selected {
+    border-color: crimson;
+    box-shadow: 0 0 15px rgba(220, 20, 60, 0.7);
+    transform: none !important;
+}
+
+.character img,
+.character-image {
+    display: block;
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 5px;
+    transform: none !important;
+}
+
+/* Style pour le survol et la sélection sans déplacement */
+.character:hover {
+    border-color: crimson;
+    border-width: 2px;
+}
+
+.character.selected {
+    border-color: #a569bd;
+    background-color: rgba(142, 68, 173, 0.2);
+    border-width: 3px;
+}
+
+/* Styles pour le modal de sélection de personnages par joueur */
+#player-character-selection .character:hover {
+    transform: none !important;
+    opacity: 1;
+}
+
+/* Annulation des animations qui déplacent les éléments */
+#player-character-selection .character,
+#player-character-selection .character:hover,
+#player-character-selection .character.selected,
+#player-character-selection .character img,
+#player-character-selection .character:hover img,
+#player-character-selection .character.selected img {
+    transform: none !important;
+} 

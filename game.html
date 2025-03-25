@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charmed - Le Jeu</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Animation d'entrée pour la page de jeu */
+        body {
+            opacity: 0;
+            animation: fadeIn 1.5s forwards;
+            animation-delay: 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .game-board {
+            transform: scale(0.8);
+            opacity: 0;
+            animation: scaleIn 1s forwards;
+            animation-delay: 1s;
+        }
+        
+        @keyframes scaleIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        .player-card {
+            transform: translateX(-50px);
+            opacity: 0;
+            animation: slideIn 1s forwards;
+        }
+        
+        .player-card:nth-child(1) { animation-delay: 1.2s; }
+        .player-card:nth-child(2) { animation-delay: 1.4s; }
+        .player-card:nth-child(3) { animation-delay: 1.6s; }
+        .player-card:nth-child(4) { animation-delay: 1.8s; }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-50px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .controls button {
+            transform: translateY(20px);
+            opacity: 0;
+            animation: buttonIn 0.5s forwards;
+            animation-delay: 2s;
+        }
+        
+        @keyframes buttonIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Charmed - Le Jeu de Société</h1>
+            <p class="subtitle">Combattez les démons et sauvez les innocents avec vos pouvoirs magiques!</p>
+        </header>
+        
+        <div class="game-area">
+            <div class="game-board-container">
+                <div class="game-board" id="gameBoard"></div>
+            </div>
+            
+            <div class="player-info" id="playerInfo">
+                <!-- Les cartes des joueurs seront générées ici -->
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="rollDice">Lancer le dé</button>
+            <button id="useSpell" disabled>Utiliser un sort</button>
+            <button id="endTurn" disabled>Fin du tour</button>
+            <button id="saveGame">Sauvegarder</button>
+            <button id="mainMenu" onclick="window.location.href='index.html'">Menu Principal</button>
+        </div>
+        
+        <div class="game-log-container">
+            <h3>Journal de jeu</h3>
+            <div class="game-log" id="gameLog">
+                <!-- Les entrées du journal seront générées ici -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal pour les événements -->
+    <div class="modal" id="eventModal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-modal" id="closeModal">&times;</span>
+            <h2 id="modalTitle">Titre de l'événement</h2>
+            <img id="modalImage" class="event-image" src="" alt="Image d'événement">
+            <p id="modalText">Description de l'événement...</p>
+            <div class="modal-actions">
+                <button id="modalConfirm">Confirmer</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+    <script>
+        // Récupération des paramètres de l'URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameMode = urlParams.get('mode');
+        
+        // Initialisation du jeu en fonction du mode
+        document.addEventListener('DOMContentLoaded', function() {
+            // Si c'est une nouvelle partie
+            if (gameMode === 'new') {
+                // L'initialisation des joueurs est maintenant gérée dans game.js
+                
+                // Afficher un message de bienvenue
+                setTimeout(() => {
+                    game.showModal('Nouvelle Aventure', 'https://i.imgur.com/n5Q4LGU.png', 
+                        'Bienvenue dans le manoir Halliwell. Les forces du mal sont de plus en plus actives et menacent de détruire le Pouvoir des Trois. Utilisez vos pouvoirs avec sagesse pour rétablir l\'équilibre entre le bien et le mal.');
+                }, 1000); // Délai pour s'assurer que le jeu est initialisé
+            }
+            // Si c'est une partie chargée (à implémenter)
+            else if (gameMode === 'load') {
+                // Charger les données sauvegardées
+                const savedGame = localStorage.getItem('savedGame');
+                if (savedGame) {
+                    // Restaurer l'état du jeu
+                    const gameState = JSON.parse(savedGame);
+                    // Appliquer l'état sauvegardé
+                    // Implémenter cette partie plus tard
+                    
+                    game.addLogEntry("Partie chargée avec succès!");
+                } else {
+                    // Pas de sauvegarde trouvée, démarrer une nouvelle partie
+                    game.addLogEntry("Aucune sauvegarde trouvée. Démarrage d'une nouvelle partie.");
+                }
+            }
+        });
+        
+        // Ajouter un gestionnaire pour la sauvegarde
+        document.getElementById('saveGame').addEventListener('click', function() {
+            // Créer un objet avec l'état actuel du jeu
+            const gameState = {
+                players: game.players,
+                currentPlayerIndex: game.currentPlayerIndex,
+                board: game.board,
+                // Autres données à sauvegarder
+            };
+            
+            // Sauvegarder dans le localStorage
+            localStorage.setItem('savedGame', JSON.stringify(gameState));
+            
+            alert('Partie sauvegardée!');
+            game.addLogEntry("Partie sauvegardée.");
+        });
+    </script>
+</body>
+</html> 
