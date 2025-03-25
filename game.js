@@ -212,12 +212,43 @@ const game = {
             this.socket.on('gameStateUpdated', (data) => {
                 console.log('État du jeu mis à jour:', data);
                 
+                // Mémoriser le plateau actuel et les positions actuelles
+                const oldBoard = JSON.parse(JSON.stringify(game.board || []));
+                const oldPositions = game.players ? game.players.map(p => p.position) : [];
+                
                 // Mettre à jour l'état local du jeu
                 this.updateLocalGameState(data.game);
+                
+                // Vérifier si les données de plateau ont changé
+                const boardChanged = !oldBoard.length || 
+                    JSON.stringify(oldBoard) !== JSON.stringify(game.board);
+                
+                // Si le plateau a changé, le recréer
+                if (boardChanged) {
+                    console.log("Le plateau a changé, recréation...");
+                    game.renderBoard();
+                }
+                
+                // Vérifier si les positions des joueurs ont changé
+                const positionsChanged = !oldPositions.length || 
+                    game.players.some((p, i) => p.position !== (oldPositions[i] || 0));
+                
+                // Si les positions ont changé, mettre à jour les joueurs
+                if (positionsChanged) {
+                    console.log("Les positions ont changé, mise à jour...");
+                    game.updatePlayerPositions();
+                }
                 
                 // Afficher le résultat du dé si c'était un lancer
                 if (data.lastAction && data.lastAction.type === 'rollDice') {
                     this.showDiceResult(data.game.gameState.diceValue);
+                }
+                
+                // Si un démon a été activé, afficher l'interface de combat
+                if (data.game.gameState.activeDemon && !game.combatState) {
+                    console.log("Démon activé, affichage du combat...");
+                    game.currentDemon = data.game.gameState.activeDemon;
+                    game.startCombat();
                 }
             });
             
@@ -235,6 +266,9 @@ const game = {
                 // Afficher un message dans le journal
                 const currentPlayer = game.players[game.currentPlayerIndex];
                 game.addLogEntry(`C'est au tour de ${currentPlayer.name}`);
+                
+                // Afficher l'indicateur de tour
+                game.showTurnIndicator();
             });
         },
         
@@ -267,35 +301,114 @@ const game = {
             });
         },
         
-        // Afficher le résultat du dé
+        // Afficher le résultat du dé avec une animation
         showDiceResult: function(diceValue) {
             // Créer une animation pour le dé, comme dans le mode local
             const diceContainer = document.createElement('div');
             diceContainer.className = 'dice-container';
-            diceContainer.innerHTML = `<div class="dice">${diceValue}</div>`;
+            
+            // Utiliser une icône de dé si disponible
+            if (typeof game.getWordForNumber === 'function') {
+                diceContainer.innerHTML = `<div class="dice"><i class="fas fa-dice-${game.getWordForNumber(diceValue)}"></i></div>`;
+            } else {
+                diceContainer.innerHTML = `<div class="dice">${diceValue}</div>`;
+            }
+            
             document.body.appendChild(diceContainer);
             
-            // Supprimer après l'animation
+            // Animer le dé (faire un peu tourner)
             setTimeout(() => {
-                diceContainer.classList.add('fade-out');
+                diceContainer.classList.add('dice-roll');
+                
+                // Supprimer après l'animation
                 setTimeout(() => {
-                    document.body.removeChild(diceContainer);
-                }, 500);
-            }, 1500);
+                    diceContainer.classList.add('fade-out');
+                    setTimeout(() => {
+                        document.body.removeChild(diceContainer);
+                    }, 500);
+                }, 1500);
+            }, 100);
         },
         
         // Mettre à jour l'état local du jeu
         updateLocalGameState: function(serverGame) {
-            // Mettre à jour les joueurs
-            game.players = serverGame.players;
+            // Mettre à jour les joueurs en combinant les données
+            game.players = serverGame.players.map((player, index) => {
+                const playerState = serverGame.gameState.playerStates.find(p => p.id === player.id);
+                return {
+                    id: player.id,
+                    name: player.name,
+                    color: playerState.color,
+                    health: playerState.health,
+                    mana: playerState.mana,
+                    position: playerState.position,
+                    inventory: playerState.inventory || [],
+                    image: playerState.image,
+                    power: playerState.power,
+                    playerNumber: playerState.playerNumber || index + 1,
+                    character: player.character
+                };
+            });
             
             // Mettre à jour l'index du joueur courant
             game.currentPlayerIndex = serverGame.currentPlayerIndex;
             
-            // Mettre à jour le plateau
-            game.board = serverGame.gameState.board;
+            // Recréer le plateau local avec les données du serveur
+            game.board = [];
+            const gameBoard = document.getElementById('gameBoard');
+            if (gameBoard) {
+                gameBoard.innerHTML = '';
+                
+                // Créer les 64 cases comme dans le mode local
+                serverGame.gameState.board.forEach((cell, i) => {
+                    const cellElement = document.createElement('div');
+                    cellElement.className = 'cell';
+                    cellElement.dataset.index = i;
+                    
+                    // Appliquer le style en fonction du type de case
+                    if (cell.type === 'special') {
+                        cellElement.classList.add('special-cell');
+                        cellElement.innerHTML = '<i class="fas fa-magic"></i>';
+                    } else if (cell.type === 'demon') {
+                        cellElement.classList.add('demon-cell');
+                        // Trouver le démon correspondant
+                        if (cell.content && cell.content.demonId) {
+                            const demonId = cell.content.demonId;
+                            const demon = serverGame.gameState.demons.find(d => d.id === demonId);
+                            if (demon) {
+                                cellElement.innerHTML = `<img src="${demon.image}" alt="${demon.name}" class="cell-image">`;
+                            }
+                        }
+                    } else if (cell.type === 'trap') {
+                        cellElement.classList.add('trap-cell');
+                        cellElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                    } else if (cell.type === 'item') {
+                        cellElement.classList.add('item-cell');
+                        // Trouver l'objet correspondant
+                        if (cell.content && cell.content.itemId) {
+                            const itemId = cell.content.itemId;
+                            const item = serverGame.gameState.items.find(i => i.id === itemId);
+                            if (item) {
+                                cellElement.classList.add(`${item.type}-cell`);
+                                cellElement.dataset.itemId = item.id;
+                                cellElement.innerHTML = `<img src="${item.icon}" alt="${item.name}" class="cell-image">`;
+                            }
+                        }
+                    }
+                    
+                    gameBoard.appendChild(cellElement);
+                    
+                    // Mettre à jour l'objet board local
+                    game.board.push({
+                        index: i,
+                        type: cell.type,
+                        itemType: cell.type === 'item' ? (cell.content && cell.content.itemId ? 'item' : null) : null,
+                        itemId: cell.type === 'item' && cell.content ? cell.content.itemId : null
+                    });
+                });
+            }
             
-            // Mettre à jour les états des joueurs
+            // Stocker les états des joueurs pour référence
             game.playerStates = serverGame.gameState.playerStates;
             
             // Mettre à jour les objets et démons
@@ -305,6 +418,12 @@ const game = {
             // Mettre à jour l'état du jeu
             game.gameStarted = serverGame.gameState.gameStarted;
             game.gameOver = serverGame.gameState.gameOver;
+            game.diceValue = serverGame.gameState.diceValue;
+            
+            // Mettre à jour le démon actif si présent
+            if (serverGame.gameState.activeDemon) {
+                game.currentDemon = serverGame.gameState.activeDemon;
+            }
             
             // Mettre à jour l'interface
             this.updateUI();
@@ -505,18 +624,50 @@ const game = {
         console.log("Rendu des joueurs actifs:", this.players);
         
         const playerInfo = document.getElementById('playerInfo');
+        if (!playerInfo) {
+            console.error("Élément playerInfo non trouvé");
+            return;
+        }
+        
         playerInfo.innerHTML = '';
         
         // Créer la carte de chaque joueur
         this.players.forEach((player, index) => {
+            // Si nous sommes en mode en ligne et que nous avons des playerStates, les utiliser
+            let playerHealth = player.health;
+            let playerMana = player.mana;
+            let playerPosition = player.position;
+            let playerInventory = player.inventory || [];
+            
+            if (this.onlineMode && this.onlineMode.isActive && this.playerStates) {
+                const state = this.playerStates.find(p => p.id === player.id);
+                if (state) {
+                    playerHealth = state.health;
+                    playerMana = state.mana;
+                    playerPosition = state.position;
+                    playerInventory = state.inventory || [];
+                }
+            }
+            
             const playerCard = document.createElement('div');
             playerCard.className = `player-card ${index === this.currentPlayerIndex ? 'current-player' : ''}`;
             playerCard.dataset.playerNumber = player.playerNumber || index + 1;
             playerCard.dataset.playerColor = player.color;
+            playerCard.dataset.playerId = player.id || '';
             
             // Ajouter une bannière "À VOUS DE JOUER" pour le joueur actif
             const activePlayerBanner = index === this.currentPlayerIndex ? 
                 `<div class="active-player-banner">À VOUS DE JOUER</div>` : '';
+            
+            // S'assurer que l'image existe
+            const playerImage = player.image || (player.character ? 
+                getCharacterImage(player.character) : 
+                "https://i.imgur.com/T6iXrD7.jpg");
+            
+            // S'assurer que le pouvoir existe
+            const playerPower = player.power || (player.character ? 
+                getCharacterPower(player.character) : 
+                "Pouvoir inconnu");
             
             playerCard.innerHTML = `
                 ${activePlayerBanner}
@@ -525,20 +676,20 @@ const game = {
                     <div class="player-name">${player.name}</div>
                 </div>
                 <div class="player-image">
-                    <img src="${player.image}" alt="${player.name}">
+                    <img src="${playerImage}" alt="${player.name}">
                 </div>
-                <div class="player-power">${player.power}</div>
+                <div class="player-power">${playerPower}</div>
                 <div class="player-status">
                     <div class="status-item">
-                        <span class="status-value">${player.health}</span>
+                        <span class="status-value">${playerHealth}</span>
                         <span class="status-label">Santé</span>
                     </div>
                     <div class="status-item">
-                        <span class="status-value">${player.mana}</span>
+                        <span class="status-value">${playerMana}</span>
                         <span class="status-label">Mana</span>
                     </div>
                     <div class="status-item">
-                        <span class="status-value">${player.position}</span>
+                        <span class="status-value">${playerPosition}</span>
                         <span class="status-label">Position</span>
                     </div>
                 </div>
@@ -548,8 +699,8 @@ const game = {
                         <i class="fas fa-chevron-down"></i>
                     </div>
                     <div class="inventory-items">
-                        ${player.inventory && player.inventory.length > 0 ? player.inventory.map(item => `
-                            <div class="inventory-item">
+                        ${playerInventory && playerInventory.length > 0 ? playerInventory.map(item => `
+                            <div class="inventory-item" data-item-id="${item.id}">
                                 <img src="${item.icon}" alt="${item.name}">
                                 <div class="inventory-item-tooltip">
                                     <div class="tooltip-title">${item.name}</div>
@@ -565,8 +716,45 @@ const game = {
             playerInfo.appendChild(playerCard);
         });
         
+        // Ajouter les événements pour utiliser les objets
+        if (this.onlineMode && this.onlineMode.isActive) {
+            document.querySelectorAll('.inventory-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const itemId = parseInt(e.currentTarget.dataset.itemId);
+                    if (itemId && this.onlineMode.isActive) {
+                        this.onlineMode.sendAction('useItem', { itemId: itemId });
+                    }
+                });
+            });
+        }
+        
         // Placer les joueurs sur le plateau
         this.updatePlayerPositions();
+        
+        // Fonctions utilitaires pour obtenir l'image et le pouvoir du personnage
+        function getCharacterImage(characterName) {
+            const images = {
+                "Piper": "https://th.bing.com/th/id/R.e418e2e82e7d024893b72962bfa1fb03?rik=0qM8%2fp3Dzkr63A&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPiper-Halliwell-charmed-25593462-1912-2560.jpg&ehk=rxkknJzYQe06CdLUufNRS94f9bGVAWedZ7yJeX3j2Us%3d&risl=&pid=ImgRaw&r=0",
+                "Phoebe": "https://usercontent2.hubstatic.com/14340833_f520.jpg",
+                "Prue": "https://th.bing.com/th/id/R.9898bd81a60bd0fb240e5c8a3ed8ec85?rik=QHMl3HpnNXX5Kg&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPrue-Halliwell-charmed-25593840-2141-2560.jpg&ehk=5FdgnbZowUevZ4QwBVZXNyZF7eSUZwcZb1MbS9MvcOg%3d&risl=&pid=ImgRaw&r=0",
+                "Paige": "https://images.saymedia-content.com/.image/ar_3:2%2Cc_limit%2Ccs_srgb%2Cfl_progressive%2Cq_auto:eco%2Cw_1400/MTc1MTE0NzE2OTA0MjM2MTI3/the-hairvolution-of-paige-halliwell-from-charmed.jpg",
+                "Leo": "https://vignette.wikia.nocookie.net/charmed/images/c/c3/7x17-Leo.jpg/revision/latest?cb=20110125004234",
+                "Cole": "https://th.bing.com/th/id/R.c8f0eba9a7ba1a10dd8d500b556f3b38?rik=7kuy7xFys9fDcg&riu=http%3a%2f%2fimg2.wikia.nocookie.net%2f__cb20110925135650%2fcharmed%2fimages%2f7%2f72%2fSeason-4-cole-05.jpg&ehk=6EIaa%2bvcITIVyCyaDptIuIOvBHDYY8KoihtCUv5nk0U%3d&risl=&pid=ImgRaw&r=0"
+            };
+            return images[characterName] || "https://i.imgur.com/T6iXrD7.jpg";
+        }
+        
+        function getCharacterPower(characterName) {
+            const powers = {
+                "Piper": "Immobilisation moléculaire",
+                "Phoebe": "Prémonition",
+                "Prue": "Télékinésie",
+                "Paige": "Téléportation d'objets",
+                "Leo": "Guérison",
+                "Cole": "Boules de feu"
+            };
+            return powers[characterName] || "Pouvoir inconnu";
+        }
     },
     
     // Mettre à jour la position des joueurs sur le plateau
@@ -588,15 +776,21 @@ const game = {
                     const playerMarker = document.createElement('div');
                     playerMarker.className = `player ${player.color}`;
                     playerMarker.dataset.playerNumber = player.playerNumber || index + 1;
+                    playerMarker.dataset.playerId = player.id || '';
                     
                     // Ajouter une classe pour le joueur actif
                     if (index === this.currentPlayerIndex) {
                         playerMarker.classList.add('player-active');
                     }
                     
+                    // S'assurer que l'image existe, sinon utiliser une image par défaut
+                    const playerImage = player.image || (player.character ? 
+                        getCharacterImage(player.character) : 
+                        "https://i.imgur.com/T6iXrD7.jpg");
+                    
                     // Utiliser une image miniature pour le plateau avec le numéro du joueur
                     playerMarker.innerHTML = `
-                        <img src="${player.image}" alt="${player.name}">
+                        <img src="${playerImage}" alt="${player.name}">
                         <span class="player-marker-number">${player.playerNumber || index + 1}</span>
                     `;
                     
@@ -758,6 +952,13 @@ const game = {
     
     // Simuler un combat contre un démon
     startCombat: function() {
+        // Si nous sommes en mode en ligne et que le combat est initié par le serveur, 
+        // nous utilisons le démon actif envoyé par le serveur
+        if (this.onlineMode && this.onlineMode.isActive && this.currentDemon) {
+            this.showCombatInterface(this.currentDemon);
+            return;
+        }
+
         // Désactiver tous les boutons pendant le combat
         document.getElementById('rollDice').disabled = true;
         document.getElementById('useSpell').disabled = true;
@@ -777,6 +978,11 @@ const game = {
             image: demon.image
         };
         
+        this.showCombatInterface(this.currentDemon);
+    },
+    
+    // Afficher l'interface de combat
+    showCombatInterface: function(demon) {
         const player = this.players[this.currentPlayerIndex];
         
         // Créer l'interface de combat
@@ -791,12 +997,12 @@ const game = {
         
         modalContent.innerHTML = `
             <span class="close-modal" id="closeModal">&times;</span>
-            <h2>Combat contre ${this.currentDemon.name}</h2>
+            <h2>Combat contre ${demon.name}</h2>
             
             <div class="combat-screen">
                 <div class="combat-character combat-player">
                     <div class="combat-player-number">Joueur ${player.playerNumber || this.currentPlayerIndex + 1}</div>
-                    <img src="${player.image}" alt="${player.name}" class="combat-image">
+                    <img src="${player.image || getCharacterImage(player.character)}" alt="${player.name}" class="combat-image">
                     <div class="combat-name">${player.name}</div>
                     <div class="combat-stats">
                         <div class="combat-health">
@@ -813,15 +1019,15 @@ const game = {
                 <div class="vs-symbol">VS</div>
                 
                 <div class="combat-character combat-demon">
-                    <img src="${this.currentDemon.image}" alt="${this.currentDemon.name}" class="combat-image">
-                    <div class="combat-name">${this.currentDemon.name}</div>
+                    <img src="${demon.image}" alt="${demon.name}" class="combat-image">
+                    <div class="combat-name">${demon.name}</div>
                     <div class="combat-stats">
                         <div class="combat-health">
-                            <span id="demon-health">${this.currentDemon.health}</span>
+                            <span id="demon-health">${demon.health}</span>
                             <span class="combat-label">Santé</span>
                         </div>
                         <div class="combat-power">
-                            <span id="demon-power">${this.currentDemon.power}</span>
+                            <span id="demon-power">${demon.power}</span>
                             <span class="combat-label">Pouvoir</span>
                         </div>
                     </div>
@@ -842,7 +1048,7 @@ const game = {
         
         // Stocker les références pour le combat
         this.combatState = {
-            demon: this.currentDemon,
+            demon: demon,
             round: 0,
             inProgress: true
         };
@@ -857,10 +1063,28 @@ const game = {
             }
         };
         
-        const attackHandler = () => this.performCombatAction('attack');
-        const spellHandler = () => this.performCombatAction('spell');
-        const potionHandler = () => this.performCombatAction('potion');
-        const fleeHandler = () => this.tryToFlee();
+        // En mode en ligne, envoyer l'action au serveur plutôt que de la traiter localement
+        const createCombatHandler = (actionType) => {
+            return () => {
+                if (this.onlineMode && this.onlineMode.isActive) {
+                    this.onlineMode.sendAction(actionType, { target: 'demon' });
+                } else {
+                    this.performCombatAction(actionType);
+                }
+            };
+        };
+        
+        const attackHandler = createCombatHandler('attack');
+        const spellHandler = createCombatHandler('useSpell');
+        const potionHandler = createCombatHandler('usePotion');
+        
+        const fleeHandler = () => {
+            if (this.onlineMode && this.onlineMode.isActive) {
+                this.onlineMode.sendAction('flee', {});
+            } else {
+                this.tryToFlee();
+            }
+        };
         
         // Stocker les gestionnaires dans l'objet combatState pour pouvoir les nettoyer
         this.combatState.handlers = {
@@ -885,6 +1109,19 @@ const game = {
         
         const fleeBtn = document.getElementById('flee-action');
         if (fleeBtn) fleeBtn.addEventListener('click', fleeHandler);
+        
+        // Fonction utilitaire pour obtenir l'image du personnage
+        function getCharacterImage(characterName) {
+            const images = {
+                "Piper": "https://th.bing.com/th/id/R.e418e2e82e7d024893b72962bfa1fb03?rik=0qM8%2fp3Dzkr63A&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPiper-Halliwell-charmed-25593462-1912-2560.jpg&ehk=rxkknJzYQe06CdLUufNRS94f9bGVAWedZ7yJeX3j2Us%3d&risl=&pid=ImgRaw&r=0",
+                "Phoebe": "https://usercontent2.hubstatic.com/14340833_f520.jpg",
+                "Prue": "https://th.bing.com/th/id/R.9898bd81a60bd0fb240e5c8a3ed8ec85?rik=QHMl3HpnNXX5Kg&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f25500000%2fPrue-Halliwell-charmed-25593840-2141-2560.jpg&ehk=5FdgnbZowUevZ4QwBVZXNyZF7eSUZwcZb1MbS9MvcOg%3d&risl=&pid=ImgRaw&r=0",
+                "Paige": "https://images.saymedia-content.com/.image/ar_3:2%2Cc_limit%2Ccs_srgb%2Cfl_progressive%2Cq_auto:eco%2Cw_1400/MTc1MTE0NzE2OTA0MjM2MTI3/the-hairvolution-of-paige-halliwell-from-charmed.jpg",
+                "Leo": "https://vignette.wikia.nocookie.net/charmed/images/c/c3/7x17-Leo.jpg/revision/latest?cb=20110125004234",
+                "Cole": "https://th.bing.com/th/id/R.c8f0eba9a7ba1a10dd8d500b556f3b38?rik=7kuy7xFys9fDcg&riu=http%3a%2f%2fimg2.wikia.nocookie.net%2f__cb20110925135650%2fcharmed%2fimages%2f7%2f72%2fSeason-4-cole-05.jpg&ehk=6EIaa%2bvcITIVyCyaDptIuIOvBHDYY8KoihtCUv5nk0U%3d&risl=&pid=ImgRaw&r=0"
+            };
+            return images[characterName] || "https://i.imgur.com/T6iXrD7.jpg";
+        }
     },
     
     // Effectuer une action de combat

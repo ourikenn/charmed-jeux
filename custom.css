@@ -56,4 +56,129 @@
 #player-character-selection .character:hover img,
 #player-character-selection .character.selected img {
     transform: none !important;
+}
+
+/* Styles pour l'animation du dé en mode en ligne */
+.dice-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 150px;
+    height: 150px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 20px;
+    box-shadow: 0 0 30px rgba(142, 68, 173, 0.8);
+    animation: diceAppear 0.5s ease-out;
+}
+
+.dice-container .dice {
+    width: 100px;
+    height: 100px;
+    background-color: #8e44ad;
+    border-radius: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 3em;
+    font-weight: bold;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+.dice-container .dice i {
+    font-size: 1.2em;
+    color: white;
+}
+
+.dice-roll {
+    animation: diceRoll 1s ease-out;
+}
+
+@keyframes diceRoll {
+    0% { transform: rotate(0deg) scale(1); }
+    20% { transform: rotate(90deg) scale(1.2); }
+    40% { transform: rotate(180deg) scale(1.4); }
+    60% { transform: rotate(270deg) scale(1.2); }
+    80% { transform: rotate(360deg) scale(1); }
+    100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes diceAppear {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    70% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Amélioration du style pour les indicateurs de joueur en mode online */
+[data-player-id] {
+    position: relative;
+}
+
+[data-player-id]::after {
+    content: 'En Ligne';
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background-color: #2ecc71;
+    color: white;
+    font-size: 0.7em;
+    padding: 2px 6px;
+    border-radius: 10px;
+    opacity: 0.8;
+    animation: onlinePulse 2s infinite;
+    z-index: 10;
+}
+
+@keyframes onlinePulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Amélioration de l'animation des pions sur le plateau */
+.player img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.player:hover img {
+    transform: scale(1.2);
+}
+
+/* Amélioration des animations du mode de combat */
+.combat-character {
+    transition: all 0.3s ease;
+}
+
+.combat-character:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(142, 68, 173, 0.8);
+}
+
+.combat-action {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.combat-action:before {
+    content: "";
+    position: absolute;
+    top: -100%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 100%);
+    transition: all 0.3s ease;
+}
+
+.combat-action:hover:before {
+    top: 0;
 } 
